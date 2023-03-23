@@ -16,27 +16,42 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 
+	"github.com/joho/godotenv"
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
 var bot *linebot.Client
 
 func main() {
+	var myEnv map[string]string
 	var err error
-	bot, err = linebot.New(os.Getenv("ChannelSecret"), os.Getenv("ChannelAccessToken"))
-	log.Println("Bot:", bot, " err:", err)
+
+	myEnv, err = godotenv.Read()
+	if err != nil {
+		log.Println("Env read err:", err)
+	}
+
+	bot, err = linebot.New(myEnv["ChannelSecret"], myEnv["ChannelAccessToken"])
+	if err != nil {
+		log.Println("Line bot err:", err)
+	}
+	log.Println("Bot Created:", bot)
+
 	http.HandleFunc("/callback", callbackHandler)
-	port := os.Getenv("PORT")
-	addr := fmt.Sprintf(":%s", port)
-	http.ListenAndServe(addr, nil)
+	addr := fmt.Sprintf(":%s", myEnv["PORT"])
+	http.ListenAndServeTLS(addr, myEnv["SSLCertfilePath"], myEnv["SSLKeyPath"], nil)
 }
 
 func callbackHandler(w http.ResponseWriter, r *http.Request) {
+	var err error
 	events, err := bot.ParseRequest(r)
+	if err != nil {
+		log.Println("Line msg read err:", err)
+	}
 
+	log.Print("Request Received. ")
 	if err != nil {
 		if err == linebot.ErrInvalidSignature {
 			w.WriteHeader(400)
