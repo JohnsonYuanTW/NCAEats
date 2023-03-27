@@ -16,13 +16,17 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/line/line-bot-sdk-go/v7/linebot"
+	"golang.org/x/exp/slices"
 )
 
 var bot *linebot.Client
+
+var restaurants []string = []string{"A", "B", "C"}
+var menuItems []string = []string{"AA", "BB", "CC"}
 
 func main() {
 	var myEnv map[string]string
@@ -50,8 +54,6 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println("Line msg read err:", err)
 	}
-
-	log.Print("Request Received. ")
 	if err != nil {
 		if err == linebot.ErrInvalidSignature {
 			w.WriteHeader(400)
@@ -63,32 +65,80 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 
 	for _, event := range events {
 		if event.Type == linebot.EventTypeMessage {
-			switch message := event.Message.(type) {
-			// Handle only on text message
-			case *linebot.TextMessage:
-				// GetMessageQuota: Get how many remain free tier push message quota you still have this month. (maximum 500)
-				quota, err := bot.GetMessageQuota().Do()
-				if err != nil {
-					log.Println("Quota err:", err)
-				}
-				// message.ID: Msg unique ID
-				// message.Text: Msg text
-				if _, err = bot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage("msg ID:"+message.ID+":"+"Get:"+message.Text+" , \n OK! remain message:"+strconv.FormatInt(quota.Value, 10))).Do(); err != nil {
-					log.Print(err)
-				}
-
-			// Handle only on Sticker message
-			case *linebot.StickerMessage:
-				var kw string
-				for _, k := range message.Keywords {
-					kw = kw + "," + k
-				}
-
-				outStickerResult := fmt.Sprintf("收到貼圖訊息: %s, pkg: %s kw: %s  text: %s", message.StickerID, message.PackageID, kw, message.Text)
-				if _, err = bot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(outStickerResult)).Do(); err != nil {
-					log.Print(err)
+			// This is a message event
+			if message, ok := event.Message.(*linebot.TextMessage); ok {
+				// This is a text message event
+				if strings.Contains(message.Text, "/") {
+					// Only deal with text messages containing "/"
+					args := strings.Split(message.Text, "/")
+					command, args := args[0], args[1:]
+					var replyString string
+					switch command {
+					case "額度":
+						if len(args) > 1 || args[0] != "" {
+							replyString = invalidInputHandler("指令輸入錯誤，請重新輸入")
+							break
+						}
+						quota := getQuota()
+						replyString = fmt.Sprintf("這個官方帳號尚有 %d 則訊息額度\n", quota)
+					case "吃", "開":
+						if !slices.Contains(restaurants, args[0]) {
+							replyString = invalidInputHandler("無此餐廳，請重新輸入")
+							break
+						}
+						restaurant := args[0]
+						replyString = fmt.Sprintf("開單囉，今天吃 %s", restaurant)
+					case "點":
+						if args[0] == "" {
+							replyString = invalidInputHandler("指令輸入錯誤，請重新輸入")
+							break
+						}
+						username := getDisplaynameFromID(event.Source.UserID)
+						replyString = fmt.Sprintf("%s 點餐:\n", username)
+						var tailReplyString string
+						for _, item := range args {
+							if item == "" {
+								continue
+							} else if !slices.Contains(menuItems, item) {
+								tailReplyString += invalidInputHandler(fmt.Sprintf("※菜單中不包含餐點 %s，請重新輸入※\n", item))
+								continue
+							} else {
+								replyString += fmt.Sprintf("%s 點餐成功\n", item)
+							}
+						}
+						replyString += tailReplyString
+					default:
+						replyString = fmt.Sprint("無此指令，請重新輸入")
+					}
+					sendReply(event, replyString)
 				}
 			}
 		}
 	}
+}
+
+func getDisplaynameFromID(userID string) string {
+	res, err := bot.GetProfile(userID).Do()
+	if err != nil {
+		log.Println("UserID not Valid: ", err)
+	}
+	return res.DisplayName
+}
+
+func sendReply(event *linebot.Event, msg string) {
+	if _, err := bot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(msg)).Do(); err != nil {
+		log.Print(err)
+	}
+}
+
+func getQuota() int64 {
+	quota, err := bot.GetMessageQuota().Do()
+	if err != nil {
+		log.Println("Get quota err:", err)
+	}
+	return quota.Value
+}
+
+func invalidInputHandler(res string) string {
+	return res
 }
