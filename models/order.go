@@ -6,7 +6,7 @@ import (
 
 type Order struct {
 	gorm.Model
-	owner        string `gorm:"" json:"owner"`
+	Owner        string `gorm:"" json:"owner"`
 	RestaurantID int    `json:"restaruantID"`
 }
 
