@@ -24,9 +24,9 @@ func (r *Restaurant) CreateRestaurant() *Restaurant {
 }
 
 func GetAllRestaurants() []Restaurant {
-	var Restaurants []Restaurant
-	db.Find(&Restaurants)
-	return Restaurants
+	var restaurants []Restaurant
+	db.Find(&restaurants)
+	return restaurants
 }
 
 func GetRestaurantByName(name string) (*Restaurant, *gorm.DB, bool) {

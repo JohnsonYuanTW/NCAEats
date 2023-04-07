@@ -26,9 +26,9 @@ func (r *MenuItem) CreateMenuItem() *MenuItem {
 }
 
 func GetAllMenuItems() []MenuItem {
-	var MenuItems []MenuItem
-	db.Find(&MenuItems)
-	return MenuItems
+	var menuItems []MenuItem
+	db.Find(&menuItems)
+	return menuItems
 }
 
 func GetMenuItemsByRestaurantID(restaurantID uint) ([]MenuItem, *gorm.DB) {
