@@ -16,5 +16,8 @@ func main() {
 	handler.CreateLineBot(env["ChannelSecret"], env["ChannelAccessToken"])
 	http.HandleFunc("/callback", handler.CallbackHandler)
 	addr := fmt.Sprintf(":%s", env["PORT"])
-	http.ListenAndServeTLS(addr, env["SSLCertfilePath"], env["SSLKeyPath"], nil)
+	if err := http.ListenAndServeTLS(addr, env["SSLCertfilePath"], env["SSLKeyPath"], nil); err != nil {
+		panic(err)
+	}
+
 }
