@@ -6,9 +6,10 @@ import (
 
 type Restaurant struct {
 	gorm.Model
-	Name      string     `gorm:"" json:"name"`
-	Tel       string     `json:"tel"`
-	MenuItems []MenuItem `json:"menuitems"`
+	Name      string
+	Tel       string
+	MenuItems []MenuItem
+	Orders    []Order
 }
 
 func initRestaurant() {
@@ -25,21 +26,21 @@ func (r *Restaurant) CreateRestaurant() *Restaurant {
 
 func GetAllRestaurants() []Restaurant {
 	var restaurants []Restaurant
-	db.Find(&restaurants)
+	db.Model(&Restaurant{}).Find(&restaurants)
 	return restaurants
 }
 
-func GetRestaurantByName(name string) (*Restaurant, *gorm.DB, bool) {
+func GetRestaurantByName(name string) (*Restaurant, bool) {
 	var restaurant Restaurant
 	ok := true
-	if err := db.Where("name=?", name).First(&restaurant).Error; err != nil {
+	if err := db.Model(&Restaurant{}).Where("name=?", name).First(&restaurant).Error; err != nil {
 		ok = false
 	}
-	return &restaurant, db, ok
+	return &restaurant, ok
 }
 
 func DeleteRestaurant(ID int64) *Restaurant {
 	var restaurant Restaurant
-	db.Where("ID=?", ID).Delete(&restaurant)
+	db.Model(&Restaurant{}).Where("ID=?", ID).Delete(&restaurant)
 	return &restaurant
 }

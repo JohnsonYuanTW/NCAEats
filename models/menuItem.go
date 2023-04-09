@@ -7,10 +7,10 @@ import (
 
 type MenuItem struct {
 	gorm.Model
-	Name         string      `gorm:"" json:"name"`
-	Price        int         `json:"price"`
-	RestaurantID int         `json:"restaruantID"`
-	Restaurant   *Restaurant `json:"restaurant,omitempty"`
+	Name         string
+	Price        int
+	RestaurantID int
+	Restaurant   *Restaurant
 }
 
 func initMenuItem() {
@@ -27,29 +27,29 @@ func (r *MenuItem) CreateMenuItem() *MenuItem {
 
 func GetAllMenuItems() []MenuItem {
 	var menuItems []MenuItem
-	db.Find(&menuItems)
+	db.Model(&MenuItem{}).Find(&menuItems)
 	return menuItems
 }
 
-func GetMenuItemsByRestaurantID(restaurantID uint) ([]MenuItem, *gorm.DB) {
+func GetMenuItemsByRestaurantID(restaurantID uint) []MenuItem {
 	restaurant := &Restaurant{}
-	if err := db.Preload(clause.Associations).Take(&restaurant, restaurantID).Error; err != nil {
-		return nil, db
+	if err := db.Model(&Restaurant{}).Preload(clause.Associations).Take(&restaurant, restaurantID).Error; err != nil {
+		return nil
 	}
-	return restaurant.MenuItems, db
+	return restaurant.MenuItems
 }
 
-func GetMenuItemByName(name string) (*MenuItem, *gorm.DB, bool) {
+func GetMenuItemByName(name string) (*MenuItem, bool) {
 	var menuItem MenuItem
 	ok := false
-	if err := db.Where("name=?", name).First(&menuItem).Error; err == nil {
+	if err := db.Model(&MenuItem{}).Where("name=?", name).First(&menuItem).Error; err == nil {
 		ok = true
 	}
-	return &menuItem, db, ok
+	return &menuItem, ok
 }
 
 func DeleteMenuItem(ID int64) *MenuItem {
 	var menuItem MenuItem
-	db.Where("ID=?", ID).Delete(&menuItem)
+	db.Model(&MenuItem{}).Where("ID=?", ID).Delete(&menuItem)
 	return &menuItem
 }

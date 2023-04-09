@@ -64,17 +64,17 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 						quota := getQuota(bot)
 						replyString = fmt.Sprintf("這個官方帳號尚有 %d 則訊息額度\n", quota)
 					case "吃", "開":
+						// Error handling
 						if args[0] == "" {
 							replyString = invalidInputHandler("指令輸入錯誤，請重新輸入")
 							break
 						}
-						restaurant, _, ok := models.GetRestaurantByName(args[0])
+						restaurant, ok := models.GetRestaurantByName(args[0])
 						if !ok {
 							replyString = invalidInputHandler("無此餐廳，請重新輸入")
 							break
 						}
-						replyString = fmt.Sprintf("開單囉，今天吃 %s\n", restaurant.Name)
-						menuItems, _ := models.GetMenuItemsByRestaurantID(restaurant.ID)
+						menuItems := models.GetMenuItemsByRestaurantID(restaurant.ID)
 						if menuItems == nil {
 							replyString = invalidInputHandler("系統有誤，請重新輸入")
 							break
@@ -113,7 +113,7 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 					case "加餐點":
 						restaurantName, items := args[0], args[1:]
 						var restaurant *models.Restaurant
-						if r, _, ok := models.GetRestaurantByName(restaurantName); !ok {
+						if r, ok := models.GetRestaurantByName(restaurantName); !ok {
 							replyString = invalidInputHandler("無此餐廳，請重新輸入")
 							break
 						} else {
