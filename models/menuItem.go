@@ -9,7 +9,7 @@ type MenuItem struct {
 	gorm.Model
 	Name         string
 	Price        int
-	RestaurantID int
+	RestaurantID uint
 	Restaurant   *Restaurant
 }
 
@@ -20,9 +20,9 @@ func initMenuItem() {
 	}
 }
 
-func (r *MenuItem) CreateMenuItem() *MenuItem {
-	db.Create(&r)
-	return r
+func (mi *MenuItem) CreateMenuItem() *MenuItem {
+	db.Create(&mi)
+	return mi
 }
 
 func GetAllMenuItems() []MenuItem {
@@ -31,18 +31,18 @@ func GetAllMenuItems() []MenuItem {
 	return menuItems
 }
 
-func GetMenuItemsByRestaurantID(restaurantID uint) []MenuItem {
+func GetMenuItemsByRestaurantName(name string) []MenuItem {
 	restaurant := &Restaurant{}
-	if err := db.Model(&Restaurant{}).Preload(clause.Associations).Take(&restaurant, restaurantID).Error; err != nil {
+	if err := db.Model(&Restaurant{}).Preload(clause.Associations).Where("name=?", name).Take(&restaurant).Error; err != nil {
 		return nil
 	}
 	return restaurant.MenuItems
 }
 
-func GetMenuItemByName(name string) (*MenuItem, bool) {
+func GetMenuItemByNameAndRestaurantName(itemName string, restaurantName string) (*MenuItem, bool) {
 	var menuItem MenuItem
 	ok := false
-	if err := db.Model(&MenuItem{}).Where("name=?", name).First(&menuItem).Error; err == nil {
+	if err := db.Model(&MenuItem{}).Preload("Restaurant", "name=?", restaurantName).Where("name=?", itemName).Take(&menuItem).Error; err == nil {
 		ok = true
 	}
 	return &menuItem, ok

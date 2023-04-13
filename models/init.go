@@ -13,6 +13,8 @@ func init() {
 	connect()
 	initRestaurant()
 	initMenuItem()
+	initOrder()
+	initOrderDetail()
 }
 
 func connect() {

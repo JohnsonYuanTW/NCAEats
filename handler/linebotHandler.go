@@ -9,12 +9,9 @@ import (
 
 	"github.com/JohnsonYuanTW/NCAEats/models"
 	"github.com/line/line-bot-sdk-go/v7/linebot"
-	"golang.org/x/exp/slices"
 )
 
 var bot *linebot.Client
-
-var menuItems []string = []string{"AA", "BB", "CC"}
 
 func CreateLineBot(channelSecret string, channelAccessToken string) {
 	b, err := linebot.New(channelSecret, channelAccessToken)
@@ -65,20 +62,40 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 						replyString = fmt.Sprintf("這個官方帳號尚有 %d 則訊息額度\n", quota)
 					case "吃", "開":
 						// Error handling
-						if args[0] == "" {
+						restaurantName := args[0]
+						if restaurantName == "" {
 							replyString = invalidInputHandler("指令輸入錯誤，請重新輸入")
 							break
 						}
-						restaurant, ok := models.GetRestaurantByName(args[0])
+						restaurant, ok := models.GetRestaurantByName(restaurantName)
 						if !ok {
 							replyString = invalidInputHandler("無此餐廳，請重新輸入")
 							break
 						}
-						menuItems := models.GetMenuItemsByRestaurantID(restaurant.ID)
+						menuItems := models.GetMenuItemsByRestaurantName(restaurantName)
 						if menuItems == nil {
 							replyString = invalidInputHandler("系統有誤，請重新輸入")
 							break
 						}
+
+						// Check order existance
+						count, ok := models.CountActiveOrderOfID(event.Source.UserID)
+						if !ok {
+							replyString = invalidInputHandler("系統有誤，請重新輸入")
+							break
+						}
+						if count > 0 {
+							replyString = invalidInputHandler("目前有正在進行中的訂單，請重新輸入")
+							break
+						}
+
+						// Create order
+						newOrder := &models.Order{}
+						newOrder.Owner, newOrder.Restaurant = event.Source.UserID, restaurant
+						newOrder.CreateOrder()
+
+						// Generating output
+						replyString = fmt.Sprintf("開單囉，今天吃 %s\n", restaurant.Name)
 						for _, item := range menuItems {
 							replyString += fmt.Sprintf("%s: %d 元\n", item.Name, item.Price)
 						}
@@ -89,15 +106,25 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 						}
 						username := getDisplaynameFromID(bot, event.Source.UserID)
 						replyString = fmt.Sprintf("%s 點餐:\n", username)
+						var order *models.Order
+						if count, ok := models.CountActiveOrderOfID(event.Source.UserID); ok && count == 1 {
+							order = models.GetActiveOrderOfID(event.Source.UserID)
+						} else {
+							replyString = invalidInputHandler("目前沒有正在進行中的訂單，請重新輸入")
+							break
+						}
 						var tailReplyString string
-						for _, item := range args {
-							if item == "" {
+						for _, itemName := range args {
+							if itemName == "" {
 								continue
-							} else if !slices.Contains(menuItems, item) {
-								tailReplyString += invalidInputHandler(fmt.Sprintf("※菜單中不包含餐點 %s，請重新輸入※\n", item))
+							} else if menuItem, ok := models.GetMenuItemByNameAndRestaurantName(itemName, order.Restaurant.Name); !ok {
+								tailReplyString += invalidInputHandler(fmt.Sprintf("※菜單中不包含餐點 %s，請重新輸入※\n", itemName))
 								continue
 							} else {
-								replyString += fmt.Sprintf("%s 點餐成功\n", item)
+								newOrderDetail := &models.OrderDetail{}
+								newOrderDetail.Owner, newOrderDetail.Order, newOrderDetail.MenuItem = event.Source.UserID, order, menuItem
+								newOrderDetail.CreateOrderDetail()
+								replyString += fmt.Sprintf("%s 點餐成功\n", itemName)
 							}
 						}
 						replyString += tailReplyString
@@ -112,17 +139,17 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 						replyString = fmt.Sprintf("餐廳 %s 建立成功", newRestaurant.Name)
 					case "加餐點":
 						restaurantName, items := args[0], args[1:]
-						var restaurant *models.Restaurant
-						if r, ok := models.GetRestaurantByName(restaurantName); !ok {
+						restaurant, found := models.GetRestaurantByName(restaurantName)
+						if !found {
 							replyString = invalidInputHandler("無此餐廳，請重新輸入")
 							break
-						} else {
-							restaurant = r
 						}
+
 						if len(items) < 1 {
 							replyString = invalidInputHandler("指令輸入錯誤，請重新輸入")
 							break
 						}
+
 						replyString = fmt.Sprintf("增加餐點至 %s\n", restaurantName)
 						for _, item := range items {
 							itemArgs := strings.Split(item, ",")
@@ -135,8 +162,7 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 							if err != nil {
 								replyString = invalidInputHandler("價格輸入錯誤，請重新輸入")
 							} else {
-								newMenuItem := &models.MenuItem{}
-								newMenuItem.Name, newMenuItem.Price, newMenuItem.Restaurant = name, price, restaurant
+								newMenuItem := &models.MenuItem{Name: name, Price: price, Restaurant: restaurant}
 								newMenuItem.CreateMenuItem()
 								replyString += fmt.Sprintf("餐點 %s %d 元\n", name, price)
 							}
@@ -151,6 +177,42 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 						for _, restrestaurant := range restaurants {
 							replyString += fmt.Sprintln(restrestaurant.Name)
 						}
+					case "清除":
+						if len(args) > 1 || args[0] != "" {
+							replyString = invalidInputHandler("指令輸入錯誤，請重新輸入")
+							break
+						}
+						count, ok := models.CountActiveOrderOfID(event.Source.UserID)
+						if count == 0 {
+							replyString = invalidInputHandler("目前沒有正在進行中的訂單，請重新輸入")
+							break
+						} else if !ok {
+							replyString = invalidInputHandler("系統錯誤，請重新輸入")
+							break
+						}
+						if count, ok := models.CountActiveOrderOfID(event.Source.UserID); ok && count == 1 {
+							order := models.GetActiveOrderOfID(event.Source.UserID)
+							models.DeleteOrderDetailsOfOrderID(order.ID)
+							models.DeleteOrderOfID(event.Source.UserID)
+						} else {
+							replyString = invalidInputHandler("目前沒有正在進行中的訂單，請重新輸入")
+							break
+						}
+
+						replyString = fmt.Sprintf("已清除訂單")
+					case "訂單":
+						if len(args) == 1 && args[0] == "" {
+							replyString = "訂單列表:\n"
+							orders := models.GetActiveOrders()
+							for _, order := range orders {
+								username := getDisplaynameFromID(bot, event.Source.UserID)
+								replyString += fmt.Sprintf("%s: %s\n", username, order.Restaurant.Name)
+							}
+						} else {
+							replyString = invalidInputHandler("指令輸入錯誤，請重新輸入")
+							break
+						}
+
 					default:
 						replyString = fmt.Sprint("無此指令，請重新輸入")
 					}
