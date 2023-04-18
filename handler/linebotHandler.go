@@ -54,10 +54,13 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 					var replyString string
 					switch command {
 					case "額度":
+						// Error handling
 						if len(args) > 1 || args[0] != "" {
 							replyString = invalidInputHandler("指令輸入錯誤，請重新輸入")
 							break
 						}
+
+						// Get quota
 						quota := getQuota(bot)
 						replyString = fmt.Sprintf("這個官方帳號尚有 %d 則訊息額度\n", quota)
 					case "吃", "開":
@@ -78,7 +81,7 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 							break
 						}
 
-						// Check order existance
+						// Check order existence
 						count, ok := models.CountActiveOrderOfID(event.Source.UserID)
 						if !ok {
 							replyString = invalidInputHandler("系統有誤，請重新輸入")
@@ -100,12 +103,17 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 							replyString += fmt.Sprintf("%s: %d 元\n", item.Name, item.Price)
 						}
 					case "點":
+						// Error handling
 						if args[0] == "" {
 							replyString = invalidInputHandler("指令輸入錯誤，請重新輸入")
 							break
 						}
+
+						// get username and display first part of response
 						username := getDisplaynameFromID(bot, event.Source.UserID)
 						replyString = fmt.Sprintf("%s 點餐:\n", username)
+
+						// Get active order
 						var order *models.Order
 						if count, ok := models.CountActiveOrderOfID(event.Source.UserID); ok && count == 1 {
 							order = models.GetActiveOrderOfID(event.Source.UserID)
@@ -113,6 +121,8 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 							replyString = invalidInputHandler("目前沒有正在進行中的訂單，請重新輸入")
 							break
 						}
+
+						// Create order details
 						var tailReplyString string
 						for _, itemName := range args {
 							if itemName == "" {
@@ -129,27 +139,31 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 						}
 						replyString += tailReplyString
 					case "加餐廳":
+						// Error handling
 						if len(args) > 2 {
 							replyString = invalidInputHandler("指令輸入錯誤，請重新輸入")
 							break
 						}
+
+						// Create restaurant
 						newRestaurant := &models.Restaurant{}
 						newRestaurant.Name, newRestaurant.Tel = args[0], args[1]
 						newRestaurant.CreateRestaurant()
 						replyString = fmt.Sprintf("餐廳 %s 建立成功", newRestaurant.Name)
 					case "加餐點":
+						// Get restaurant
 						restaurantName, items := args[0], args[1:]
 						restaurant, found := models.GetRestaurantByName(restaurantName)
 						if !found {
 							replyString = invalidInputHandler("無此餐廳，請重新輸入")
 							break
 						}
-
 						if len(items) < 1 {
 							replyString = invalidInputHandler("指令輸入錯誤，請重新輸入")
 							break
 						}
 
+						// Create menuitem
 						replyString = fmt.Sprintf("增加餐點至 %s\n", restaurantName)
 						for _, item := range items {
 							itemArgs := strings.Split(item, ",")
@@ -168,38 +182,61 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 							}
 						}
 					case "餐廳":
+						// Error handling
 						if len(args) > 1 || args[0] != "" {
 							replyString = invalidInputHandler("指令輸入錯誤，請重新輸入")
 							break
 						}
+
+						// Get restaurant list
 						replyString = fmt.Sprintf("餐廳列表:\n")
 						restaurants := models.GetAllRestaurants()
 						for _, restrestaurant := range restaurants {
 							replyString += fmt.Sprintln(restrestaurant.Name)
 						}
 					case "清除":
+						// Error handling
 						if len(args) > 1 || args[0] != "" {
 							replyString = invalidInputHandler("指令輸入錯誤，請重新輸入")
 							break
 						}
-						count, ok := models.CountActiveOrderOfID(event.Source.UserID)
-						if count == 0 {
-							replyString = invalidInputHandler("目前沒有正在進行中的訂單，請重新輸入")
-							break
-						} else if !ok {
-							replyString = invalidInputHandler("系統錯誤，請重新輸入")
-							break
-						}
+
+						// Get active order
+						var order *models.Order
 						if count, ok := models.CountActiveOrderOfID(event.Source.UserID); ok && count == 1 {
-							order := models.GetActiveOrderOfID(event.Source.UserID)
-							models.DeleteOrderDetailsOfOrderID(order.ID)
-							models.DeleteOrderOfID(event.Source.UserID)
+							order = models.GetActiveOrderOfID(event.Source.UserID)
 						} else {
 							replyString = invalidInputHandler("目前沒有正在進行中的訂單，請重新輸入")
 							break
 						}
 
+						// Delete orderDetails and order
+						models.DeleteOrderDetailsOfOrderID(order.ID)
+						models.DeleteOrderOfID(event.Source.UserID)
+
 						replyString = fmt.Sprintf("已清除訂單")
+					case "統計":
+						if len(args) > 1 || args[0] != "" {
+							replyString = invalidInputHandler("指令輸入錯誤，請重新輸入")
+							break
+						}
+
+						// Get active order
+						var order *models.Order
+						if count, ok := models.CountActiveOrderOfID(event.Source.UserID); ok && count == 1 {
+							order = models.GetActiveOrderOfID(event.Source.UserID)
+						} else {
+							replyString = invalidInputHandler("目前沒有正在進行中的訂單，請重新輸入")
+							break
+						}
+
+						// Get order details
+						replyString = fmt.Sprintf("%s:\n", order.Restaurant.Name)
+						orderDetails := models.GetActiveOrderDetailsOfID(order.ID)
+						for _, od := range orderDetails {
+							userName := getDisplaynameFromID(bot, od.Owner)
+							replyString += fmt.Sprintf("%s: %s / %d\n", userName, od.MenuItem.Name, od.MenuItem.Price)
+						}
 					case "訂單":
 						if len(args) == 1 && args[0] == "" {
 							replyString = "訂單列表:\n"

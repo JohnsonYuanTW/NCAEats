@@ -25,8 +25,14 @@ func (od *OrderDetail) CreateOrderDetail() *OrderDetail {
 	return od
 }
 
+func GetActiveOrderDetailsOfID(orderID uint) []OrderDetail {
+	var orderDetails []OrderDetail
+	db.Model(&OrderDetail{}).Where("order_id=?", orderID).Preload("MenuItem").Find(&orderDetails)
+	return orderDetails
+}
+
 func DeleteOrderDetailsOfOrderID(orderID uint) []OrderDetail {
 	var orderDetails []OrderDetail
-	db.Debug().Model(&OrderDetail{}).Where("order_id=?", orderID).Delete(&orderDetails)
+	db.Model(&OrderDetail{}).Where("order_id=?", orderID).Delete(&orderDetails)
 	return orderDetails
 }
