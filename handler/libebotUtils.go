@@ -20,12 +20,12 @@ func sendReply(bot *linebot.Client, event *linebot.Event, msg string) {
 	}
 }
 
-func getQuota(bot *linebot.Client) int64 {
+func getQuota(bot *linebot.Client) (int64, error) {
 	quota, err := bot.GetMessageQuota().Do()
 	if err != nil {
-		log.Println("Get quota err:", err)
+		return 0, err
 	}
-	return quota.Value
+	return quota.Value, nil
 }
 
 func invalidInputHandler(res string) string {

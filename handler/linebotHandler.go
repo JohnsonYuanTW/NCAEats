@@ -31,12 +31,16 @@ func GetBot() *linebot.Client {
 
 func handleQuota(args []string) (string, error) {
 	// Error handling
-	if len(args) > 1 || args[0] != "" {
+	if len(args) != 1 || args[0] != "" {
 		return "", fmt.Errorf("指令輸入錯誤，請重新輸入")
 	}
 
 	// Get quota
-	quota := getQuota(bot)
+	quota, err := getQuota(bot)
+	if err != nil {
+		return "", fmt.Errorf("無法獲取訊息額度: %v", err)
+	}
+
 	replyString := fmt.Sprintf("這個官方帳號尚有 %d 則訊息額度\n", quota)
 	return replyString, nil
 }
