@@ -6,7 +6,7 @@ import (
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
-func getDisplaynameFromID(bot *linebot.Client, userID string) string {
+func getDisplayNameFromID(userID string) string {
 	res, err := bot.GetProfile(userID).Do()
 	if err != nil {
 		log.Println("UserID not Valid: ", err)

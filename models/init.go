@@ -1,6 +1,10 @@
 package models
 
 import (
+	"fmt"
+	"log"
+	"time"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
@@ -10,23 +14,35 @@ import (
 var db *gorm.DB
 
 func init() {
-	connect()
+	db = connect()
 	initRestaurant()
 	initMenuItem()
 	initOrder()
 	initOrderDetail()
 }
 
-func connect() {
+func connect() *gorm.DB {
 	env := config.Env
-
-	dsn := "host=" + env["DB_URL"] + " user=" + env["DB_USERNAME"] + " password=" + env["DB_PASSWORD"] + " dbname=" + env["DB_NAME"] + " port=" + env["DB_PORT"] + " sslmode=disable TimeZone=Asia/Taipei"
-	d, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Taipei",
+		env["DB_URL"], env["DB_USERNAME"], env["DB_PASSWORD"], env["DB_NAME"], env["DB_PORT"])
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		panic(err)
+		log.Printf("Error connecting to database: %v", err)
+		return nil
 	}
-	db = d
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Printf("Error getting DB instance: %v", err)
+		return nil
+	}
+
+	// Set connection pool parameters
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(100)
+	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	log.Println("Database connected successfully!")
+	return db
 }
 
 func GetDB() *gorm.DB {
