@@ -7,25 +7,15 @@ import (
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-
-	"github.com/JohnsonYuanTW/NCAEats/config"
 )
 
 var db *gorm.DB
 
-func init() {
-	db = connect()
-	initRestaurant()
-	initMenuItem()
-	initOrder()
-	initOrderDetail()
-}
-
-func connect() *gorm.DB {
-	env := config.Env
+func InitDB(env map[string]string) *gorm.DB {
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Taipei",
 		env["DB_URL"], env["DB_USERNAME"], env["DB_PASSWORD"], env["DB_NAME"], env["DB_PORT"])
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	var err error
+	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Printf("Error connecting to database: %v", err)
 		return nil
@@ -42,6 +32,12 @@ func connect() *gorm.DB {
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	log.Println("Database connected successfully!")
+
+	initRestaurant()
+	initMenuItem()
+	initOrder()
+	initOrderDetail()
+	log.Println("Models initialized successfully!")
 	return db
 }
 
