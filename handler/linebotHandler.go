@@ -14,6 +14,7 @@ import (
 )
 
 var bot *linebot.Client
+var db *gorm.DB
 
 func CreateLineBot(channelSecret string, channelAccessToken string) {
 	b, err := linebot.New(channelSecret, channelAccessToken)
@@ -27,6 +28,10 @@ func CreateLineBot(channelSecret string, channelAccessToken string) {
 
 func GetBot() *linebot.Client {
 	return bot
+}
+
+func SetDB(d *gorm.DB) {
+	db = d
 }
 
 func handleQuota(args []string) (string, error) {
@@ -51,7 +56,7 @@ func handleNewOrder(args []string, ID string) (string, error) {
 	}
 
 	restaurantName := args[0]
-	restaurant, err := models.GetRestaurantByName(restaurantName)
+	restaurant, err := models.GetRestaurantByName(db, restaurantName)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return "", fmt.Errorf("無此餐廳，請重新輸入")
@@ -60,7 +65,7 @@ func handleNewOrder(args []string, ID string) (string, error) {
 		return "", fmt.Errorf("系統有誤，請重新輸入")
 	}
 
-	menuItems, err := models.GetMenuItemsByRestaurantName(restaurantName)
+	menuItems, err := models.GetMenuItemsByRestaurantName(db, restaurantName)
 	if err != nil {
 		log.Printf("無法取得 %s 的餐點項目: %v", restaurantName, err)
 		return "", fmt.Errorf("系統有誤，請重新輸入")
@@ -77,7 +82,7 @@ func handleNewOrder(args []string, ID string) (string, error) {
 		Owner:      ID,
 		Restaurant: restaurant,
 	}
-	newOrder, err = newOrder.CreateOrder()
+	newOrder, err = newOrder.CreateOrder(db)
 	if err != nil {
 		log.Printf("使用者 %s 無法開單: %v", getDisplayNameFromID(ID), err)
 		return "", fmt.Errorf("系統問題無法開單，請重新輸入")
@@ -114,7 +119,7 @@ func handleNewOrderItem(args []string, ID string) (string, error) {
 	for _, itemName := range args {
 		if itemName == "" {
 			continue
-		} else if menuItem, err := models.GetMenuItemByNameAndRestaurantName(itemName, order.Restaurant.Name); err != nil {
+		} else if menuItem, err := models.GetMenuItemByNameAndRestaurantName(db, itemName, order.Restaurant.Name); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return "", fmt.Errorf("菜單中不包含餐點 %s，請重新輸入", itemName)
 			}
@@ -123,7 +128,7 @@ func handleNewOrderItem(args []string, ID string) (string, error) {
 		} else {
 			newOrderDetail := &models.OrderDetail{}
 			newOrderDetail.Owner, newOrderDetail.Order, newOrderDetail.MenuItem = ID, order, menuItem
-			newOrderDetail.CreateOrderDetail()
+			newOrderDetail.CreateOrderDetail(db)
 			replyString += fmt.Sprintf("%s 點餐成功\n", itemName)
 		}
 	}
@@ -140,7 +145,7 @@ func handleNewRestaurant(args []string) (string, error) {
 	// Create restaurant
 	newRestaurant := &models.Restaurant{}
 	newRestaurant.Name, newRestaurant.Tel = args[0], args[1]
-	newRestaurant.CreateRestaurant()
+	newRestaurant.CreateRestaurant(db)
 	return fmt.Sprintf("餐廳 %s 建立成功", newRestaurant.Name), nil
 }
 
@@ -151,7 +156,7 @@ func handleNewMenuItem(args []string) (string, error) {
 
 	// Get restaurant
 	restaurantName, items := args[0], args[1:]
-	restaurant, err := models.GetRestaurantByName(restaurantName)
+	restaurant, err := models.GetRestaurantByName(db, restaurantName)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return "", fmt.Errorf("無此餐廳 %s，請重新輸入", restaurantName)
@@ -173,7 +178,7 @@ func handleNewMenuItem(args []string) (string, error) {
 			return "", fmt.Errorf("價格輸入錯誤，請重新輸入")
 		} else {
 			newMenuItem := &models.MenuItem{Name: name, Price: price, Restaurant: restaurant}
-			newMenuItem.CreateMenuItem()
+			newMenuItem.CreateMenuItem(db)
 			replyString += fmt.Sprintf("餐點 %s %d 元\n", name, price)
 		}
 	}
@@ -188,7 +193,7 @@ func handleGetAllRestaurants(args []string) (string, error) {
 
 	// Get restaurant list
 	replyString := "餐廳列表:\n"
-	restaurants, err := models.GetAllRestaurants()
+	restaurants, err := models.GetAllRestaurants(db)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return "目前系統中無餐廳，請重新輸入", nil
@@ -207,7 +212,7 @@ func getActiveOrderOfIDWithErrorHandling(ID string) (*models.Order, error) {
 	var orders []models.Order
 	var err error
 	username := getDisplayNameFromID(ID)
-	if orders, err = models.GetActiveOrdersOfID(ID); err != nil {
+	if orders, err = models.GetActiveOrdersOfID(db, ID); err != nil {
 		log.Printf("無法取得 %s 的訂單資訊: %v", username, err)
 		return nil, fmt.Errorf("系統有誤，請重新輸入")
 	}
@@ -239,12 +244,12 @@ func handleClearOrder(args []string, ID string) (string, error) {
 	}
 
 	// Delete orderDetails and order
-	err = models.DeleteOrderDetailsOfOrderID(order.ID)
+	err = models.DeleteOrderDetailsOfOrderID(db, order.ID)
 	if err != nil {
 		log.Printf("無法刪除 order_id 為 %d 的訂單細項: %v", order.ID, err)
 		return "", fmt.Errorf("目前訂單狀況有誤，請重新輸入")
 	}
-	err = models.DeleteOrderOfID(order.ID)
+	err = models.DeleteOrderOfID(db, order.ID)
 	if err != nil {
 		log.Printf("無法刪除 order_id 為 %d 的訂單: %v", order.ID, err)
 		return "", fmt.Errorf("目前訂單狀況有誤，請重新輸入")
@@ -269,7 +274,7 @@ func handleStatistic(args []string, ID string) (string, error) {
 
 	// Get order details
 	replyString := fmt.Sprintf("%s:\n", order.Restaurant.Name)
-	orderDetails, err := models.GetActiveOrderDetailsOfID(order.ID)
+	orderDetails, err := models.GetActiveOrderDetailsOfID(db, order.ID)
 	if err != nil {
 		log.Printf("無法取得 order_id 為 %d 的訂單細項: %v", order.ID, err)
 		return "", fmt.Errorf("目前訂單狀況有誤，請重新輸入")
@@ -285,7 +290,7 @@ func handleGetAllOrders(args []string, ID string) (string, error) {
 	var replyString string
 	if len(args) == 1 && args[0] == "" {
 		replyString = "訂單列表:\n"
-		orders, err := models.GetActiveOrders()
+		orders, err := models.GetActiveOrders(db)
 		if err != nil {
 			log.Printf("無法取得所有訂單: %v", err)
 			return "", fmt.Errorf("無法取得所有訂單，請重新輸入")
@@ -380,7 +385,6 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			} else {
 				replyString = rs
 			}
-
 		default:
 			replyString = "無此指令，請重新輸入"
 		}

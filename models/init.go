@@ -20,6 +20,7 @@ func InitDB(env map[string]string) *gorm.DB {
 		log.Printf("Error connecting to database: %v", err)
 		return nil
 	}
+
 	sqlDB, err := db.DB()
 	if err != nil {
 		log.Printf("Error getting DB instance: %v", err)
@@ -33,10 +34,10 @@ func InitDB(env map[string]string) *gorm.DB {
 
 	log.Println("Database connected successfully!")
 
-	initRestaurant()
-	initMenuItem()
-	initOrder()
-	initOrderDetail()
+	initRestaurant(db)
+	initMenuItem(db)
+	initOrder(db)
+	initOrderDetail(db)
 	log.Println("Models initialized successfully!")
 	return db
 }
