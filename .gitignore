@@ -189,6 +189,8 @@ go.work
 !README.md
 !LICENSE
 
+!templates/*.json
+
 # !Makefile
 
 # ...even if they are in subdirectories
