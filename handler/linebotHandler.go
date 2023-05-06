@@ -233,26 +233,41 @@ func handleNewMenuItem(args []string) (string, error) {
 	return sb.String(), nil
 }
 
-func handleGetAllRestaurants(args []string) (string, error) {
+func handleGetAllRestaurants(args []string) (linebot.FlexContainer, error) {
 	// Error handling
 	if len(args) > 1 || args[0] != "" {
-		return "", fmt.Errorf("指令輸入錯誤，請重新輸入")
+		return nil, fmt.Errorf("指令輸入錯誤，請重新輸入")
 	}
 
 	// Get restaurant list
-	replyString := "餐廳列表:\n"
 	restaurants, err := models.GetAllRestaurants(db)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "目前系統中無餐廳，請重新輸入", nil
+			return nil, err
 		}
 		log.Printf("無法取得餐廳資訊: %v", err)
-		return "", fmt.Errorf("系統有誤，請重新輸入")
+		return nil, fmt.Errorf("系統有誤，請重新輸入")
 	}
+
+	// Get and parse restaurantListFlexContainer.json
+	restaurantListFlexContainer, err := getRestaurantListFlexContainer()
+	if err != nil {
+		log.Printf("無法解析 %s: %v", restaurantListFlexContainerPath, err)
+		return nil, fmt.Errorf("系統有誤，請重新輸入")
+	}
+
+	// Add restaurant box into bubble
 	for _, restaurant := range restaurants {
-		replyString += fmt.Sprintln(restaurant.Name)
+		newRestaurantBox, err := getRestaurantListBoxComponent(restaurant)
+		if err != nil {
+			log.Printf("無法解析 %s: %v", restaurantListBoxComponentPath, err)
+			return nil, fmt.Errorf("系統有誤，請重新輸入")
+		}
+
+		restaurantListFlexContainer.(*linebot.BubbleContainer).Body.Contents = append(restaurantListFlexContainer.(*linebot.BubbleContainer).Body.Contents, &newRestaurantBox)
 	}
-	return replyString, nil
+
+	return restaurantListFlexContainer, nil
 }
 
 func getActiveOrderOfIDWithErrorHandling(ID string) (*models.Order, error) {
@@ -410,10 +425,13 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 				replyString = rs
 			}
 		case "餐廳":
-			if rs, err := handleGetAllRestaurants(args); err != nil {
+			if container, err := handleGetAllRestaurants(args); errors.Is(err, gorm.ErrRecordNotFound) {
+				replyString = "無此餐廳，請重新輸入"
+			} else if err != nil {
 				replyString = err.Error()
 			} else {
-				replyString = rs
+				sendReplyFlexMessage(bot, event, "餐廳列表", container)
+				continue
 			}
 		case "清除":
 			if rs, err := handleClearOrder(args, ID); err != nil {

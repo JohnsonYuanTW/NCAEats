@@ -1,0 +1,32 @@
+{
+    "type": "box",
+    "layout": "horizontal",
+    "spacing": "lg",
+    "contents": [
+      {
+        "type": "text",
+        "text": "%s",
+        "size": "lg",
+        "gravity": "bottom"
+      },
+      {
+        "type": "text",
+        "text": "%s",
+        "size": "sm",
+        "gravity": "bottom",
+        "align": "end"
+      }
+    ],
+    "backgroundColor": "#DCDFE5",
+    "cornerRadius": "sm",
+    "paddingStart": "lg",
+    "paddingTop": "sm",
+    "paddingBottom": "sm",
+    "paddingEnd": "lg",
+    "action": {
+      "type": "message",
+      "label": "開/%s",
+      "text": "開/%s"
+    }
+  }
+  
