@@ -22,11 +22,8 @@ func initOrderDetail(db *gorm.DB) (err error) {
 	return
 }
 
-func (od *OrderDetail) CreateOrderDetail(db *gorm.DB) (*OrderDetail, error) {
-	if err := db.Create(&od).Error; err != nil {
-		return nil, err
-	}
-	return od, nil
+func (od *OrderDetail) CreateOrderDetail(db *gorm.DB) error {
+	return db.Create(&od).Error
 }
 
 func GetActiveOrderDetailsOfID(db *gorm.DB, orderID uint) ([]*OrderDetail, error) {

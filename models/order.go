@@ -22,11 +22,8 @@ func initOrder(db *gorm.DB) (err error) {
 	return
 }
 
-func (o *Order) CreateOrder(db *gorm.DB) (*Order, error) {
-	if err := db.Create(&o).Error; err != nil {
-		return nil, err
-	}
-	return o, nil
+func (o *Order) CreateOrder(db *gorm.DB) error {
+	return db.Create(&o).Error
 }
 
 func GetActiveOrders(db *gorm.DB) ([]Order, error) {

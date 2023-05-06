@@ -22,11 +22,8 @@ func initMenuItem(db *gorm.DB) (err error) {
 	return
 }
 
-func (mi *MenuItem) CreateMenuItem(db *gorm.DB) (*MenuItem, error) {
-	if err := db.Create(&mi).Error; err != nil {
-		return nil, err
-	}
-	return mi, nil
+func (mi *MenuItem) CreateMenuItem(db *gorm.DB) error {
+	return db.Create(&mi).Error
 }
 
 func GetAllMenuItems(db *gorm.DB) ([]MenuItem, error) {

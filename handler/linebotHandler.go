@@ -82,8 +82,7 @@ func handleNewOrder(args []string, ID string) (string, error) {
 		Owner:      ID,
 		Restaurant: restaurant,
 	}
-	newOrder, err = newOrder.CreateOrder(db)
-	if err != nil {
+	if err = newOrder.CreateOrder(db); err != nil {
 		log.Printf("使用者 %s 無法開單: %v", getDisplayNameFromID(ID), err)
 		return "", fmt.Errorf("系統問題無法開單，請重新輸入")
 	}
@@ -100,13 +99,27 @@ func handleNewOrderItem(args []string, ID string) (string, error) {
 	var replyString string
 
 	// Error handling
-	if args[0] == "" {
+	if len(args) < 1 {
 		return "", fmt.Errorf("指令輸入錯誤，請重新輸入")
 	}
 
 	// get username and display first part of response
 	username := getDisplayNameFromID(ID)
 	replyString = fmt.Sprintf("%s 點餐:\n", username)
+
+	// Count number of orders
+	if count, err := models.CountActiveOrderOfOwnerID(db, ID); err != nil {
+		log.Printf("無法計算 %s 的訂單數量: %v", getDisplayNameFromID(ID), err)
+		return "", fmt.Errorf("系統有誤，請重新輸入")
+	} else if count != 1 {
+		if count < 1 {
+			return "", fmt.Errorf("目前沒有正在進行重的訂單")
+		} else {
+			// count > 1
+			log.Printf("使用者 %s 目前有 %d 筆訂單", getDisplayNameFromID(ID), count)
+			return "", fmt.Errorf("訂單狀態有誤，請重新輸入")
+		}
+	}
 
 	// Get active order
 	order, err := getActiveOrderOfIDWithErrorHandling(ID)
@@ -137,16 +150,42 @@ func handleNewOrderItem(args []string, ID string) (string, error) {
 }
 
 func handleNewRestaurant(args []string) (string, error) {
-	// Error handling
-	if len(args) > 2 {
+	// Error handling: check if there are any arguments
+	if len(args) == 0 {
 		return "", fmt.Errorf("指令輸入錯誤，請重新輸入")
 	}
 
-	// Create restaurant
-	newRestaurant := &models.Restaurant{}
-	newRestaurant.Name, newRestaurant.Tel = args[0], args[1]
-	newRestaurant.CreateRestaurant(db)
-	return fmt.Sprintf("餐廳 %s 建立成功", newRestaurant.Name), nil
+	var restaurants []*models.Restaurant
+	// Loop through each argument and create a new restaurant
+	for _, item := range args {
+		// Split the argument into name and telephone number
+		itemArgs := strings.Split(item, ",")
+		// Check if the argument is valid
+		if len(itemArgs) < 2 {
+			return "", fmt.Errorf("指令輸入錯誤，請重新輸入")
+		}
+		name, tel := itemArgs[0], itemArgs[1]
+		newRestaurant := &models.Restaurant{Name: name, Tel: tel}
+		// Create the new restaurant in the database
+		err := newRestaurant.CreateRestaurant(db)
+		if err != nil {
+			return "", fmt.Errorf("無法新增餐廳，請重新輸入")
+		}
+		// Add the new restaurant to the list of created restaurants
+		restaurants = append(restaurants, newRestaurant)
+	}
+
+	// Check if any restaurants were actually created
+	if len(restaurants) == 0 {
+		return "", fmt.Errorf("沒有新增任何餐廳")
+	}
+
+	// Concatenate the reply string using a strings.Builder
+	var sb strings.Builder
+	for _, r := range restaurants {
+		sb.WriteString(fmt.Sprintf("餐廳 %s 建立成功\n", r.Name))
+	}
+	return sb.String(), nil
 }
 
 func handleNewMenuItem(args []string) (string, error) {
@@ -165,24 +204,33 @@ func handleNewMenuItem(args []string) (string, error) {
 		return "", fmt.Errorf("系統有誤，請重新輸入")
 	}
 
+	if len(items) == 0 {
+		return "", fmt.Errorf("沒有新增任何餐點")
+	}
+
 	// Create menuitem
-	replyString := fmt.Sprintf("增加餐點至 %s\n", restaurantName)
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("增加餐點至 %s\n", restaurantName))
 	for _, item := range items {
 		itemArgs := strings.Split(item, ",")
-		name := itemArgs[0]
-		if len(itemArgs) < 1 {
+		if len(itemArgs) < 2 {
 			return "", fmt.Errorf("指令輸入錯誤，請重新輸入")
 		}
+		name := itemArgs[0]
 		price, err := strconv.Atoi(itemArgs[1])
 		if err != nil {
 			return "", fmt.Errorf("價格輸入錯誤，請重新輸入")
-		} else {
-			newMenuItem := &models.MenuItem{Name: name, Price: price, Restaurant: restaurant}
-			newMenuItem.CreateMenuItem(db)
-			replyString += fmt.Sprintf("餐點 %s %d 元\n", name, price)
 		}
+
+		newMenuItem := &models.MenuItem{Name: name, Price: price, Restaurant: restaurant}
+		if err := newMenuItem.CreateMenuItem(db); err != nil {
+			return "", fmt.Errorf("無法新增餐點，請重新輸入")
+		}
+
+		sb.WriteString(fmt.Sprintf("餐點 %s %d 元\n", name, price))
+
 	}
-	return replyString, nil
+	return sb.String(), nil
 }
 
 func handleGetAllRestaurants(args []string) (string, error) {
