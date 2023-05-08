@@ -37,6 +37,7 @@ func getQuota(bot *linebot.Client) (int64, error) {
 	return quota.Value, nil
 }
 
+// 餐廳
 const restaurantListFlexContainerPath = "./templates/restaurantListFlexContainer.json"
 const restaurantListBoxComponentPath = "./templates/restaurantListBoxComponent.json"
 
@@ -68,4 +69,40 @@ func getRestaurantListBoxComponent(restaurant *models.Restaurant) (linebot.BoxCo
 	}
 
 	return restaurantBoxComponent, nil
+}
+
+// 開
+const menuItemListFlexContainerPath = "./templates/menuItemListFlexContainer.json"
+const menuItemListBoxComponentPath = "./templates/menuItemListBoxComponent.json"
+
+func getMenuItemListFlexContainer(restaurant *models.Restaurant) (linebot.FlexContainer, error) {
+	jsonData, err := ioutil.ReadFile(menuItemListFlexContainerPath)
+	if err != nil {
+		return nil, err
+	}
+	template := string(jsonData)
+	template = fmt.Sprintf(template, restaurant.Name, restaurant.Tel)
+	menuItemListFlexContainer, err := linebot.UnmarshalFlexMessageJSON([]byte(template))
+	if err != nil {
+		return nil, err
+	}
+
+	return menuItemListFlexContainer, nil
+}
+
+func getMenuItemListBoxComponent(menuItem *models.MenuItem) (linebot.BoxComponent, error) {
+	jsonData, err := ioutil.ReadFile(menuItemListBoxComponentPath)
+	if err != nil {
+		return linebot.BoxComponent{}, err
+	}
+	template := string(jsonData)
+	template = fmt.Sprintf(template, menuItem.Name, menuItem.Price, menuItem.Name, menuItem.Name)
+
+	menuItemBoxComponent := linebot.BoxComponent{}
+	err = menuItemBoxComponent.UnmarshalJSON([]byte(template))
+	if err != nil {
+		return linebot.BoxComponent{}, err
+	}
+
+	return menuItemBoxComponent, nil
 }
