@@ -45,15 +45,20 @@ const (
 	menuItemListBoxComponentPath    = "./templates/menuItemListBoxComponent.json"
 )
 
-func getFlexContainer(path string, data interface{}) (linebot.FlexContainer, error) {
+func getFlexContainer(path string, data ...interface{}) (linebot.FlexContainer, error) {
+	// Read json file
 	jsonData, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
+	// Insert data (if any) into the template
 	template := string(jsonData)
-	template = fmt.Sprintf(template, data)
+	if len(data) != 0 {
+		template = fmt.Sprintf(template, data...)
+	}
 
+	// Parse JSON to linebot flex container
 	flexContainer, err := linebot.UnmarshalFlexMessageJSON([]byte(template))
 	if err != nil {
 		return nil, err
@@ -62,14 +67,16 @@ func getFlexContainer(path string, data interface{}) (linebot.FlexContainer, err
 	return flexContainer, nil
 }
 
-func getBoxComponent(path string, data interface{}) (linebot.BoxComponent, error) {
+func getBoxComponent(path string, data ...interface{}) (linebot.BoxComponent, error) {
 	jsonData, err := ioutil.ReadFile(path)
 	if err != nil {
 		return linebot.BoxComponent{}, err
 	}
 
 	template := string(jsonData)
-	template = fmt.Sprintf(template, data)
+	if len(data) != 0 {
+		template = fmt.Sprintf(template, data...)
+	}
 
 	boxComponent := linebot.BoxComponent{}
 	err = boxComponent.UnmarshalJSON([]byte(template))
@@ -81,35 +88,17 @@ func getBoxComponent(path string, data interface{}) (linebot.BoxComponent, error
 }
 
 func getRestaurantListFlexContainer() (linebot.FlexContainer, error) {
-	return getFlexContainer(restaurantListFlexContainerPath, "")
+	return getFlexContainer(restaurantListFlexContainerPath)
 }
 
 func getRestaurantListBoxComponent(restaurant *models.Restaurant) (linebot.BoxComponent, error) {
-	return getBoxComponent(restaurantListBoxComponentPath, struct {
-		Name string
-		Tel  string
-	}{
-		Name: restaurant.Name,
-		Tel:  restaurant.Tel,
-	})
+	return getBoxComponent(restaurantListBoxComponentPath, restaurant.Name, restaurant.Tel, restaurant.Name, restaurant.Name)
 }
 
 func getMenuItemListFlexContainer(restaurant *models.Restaurant) (linebot.FlexContainer, error) {
-	return getFlexContainer(menuItemListFlexContainerPath, struct {
-		Name string
-		Tel  string
-	}{
-		Name: restaurant.Name,
-		Tel:  restaurant.Tel,
-	})
+	return getFlexContainer(menuItemListFlexContainerPath, restaurant.Name, restaurant.Tel)
 }
 
 func getMenuItemListBoxComponent(menuItem *models.MenuItem) (linebot.BoxComponent, error) {
-	return getBoxComponent(menuItemListBoxComponentPath, struct {
-		Name  string
-		Price int
-	}{
-		Name:  menuItem.Name,
-		Price: menuItem.Price,
-	})
+	return getBoxComponent(menuItemListBoxComponentPath, menuItem.Name, menuItem.Price, menuItem.Name, menuItem.Name)
 }
