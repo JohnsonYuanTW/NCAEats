@@ -30,14 +30,6 @@ func sendReplyFlexMessage(bot *linebot.Client, event *linebot.Event, altText str
 	}
 }
 
-func getQuota(bot *linebot.Client) (int64, error) {
-	quota, err := bot.GetMessageQuota().Do()
-	if err != nil {
-		return 0, err
-	}
-	return quota.Value, nil
-}
-
 // Flex response
 // Load JSON template
 var templates map[string]string

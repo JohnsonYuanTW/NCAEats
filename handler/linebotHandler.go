@@ -53,23 +53,6 @@ func SetDB(d *gorm.DB) {
 	db = d
 }
 
-func handleQuota(args []string) (string, error) {
-	// Error handling
-	if len(args) != 1 || args[0] != "" {
-		return "", ErrInputError
-	}
-
-	// Get quota
-	quota, err := getQuota(bot)
-	if err != nil {
-		llog.WithError(err).Error("無法獲取訊息額度")
-		return "", errors.New("無法獲取訊息額度")
-	}
-
-	replyString := fmt.Sprintf("這個官方帳號尚有 %d 則訊息額度\n", quota)
-	return replyString, nil
-}
-
 func handleNewOrder(args []string, ID string) (linebot.FlexContainer, error) {
 	if len(args) != 1 || args[0] == "" {
 		return nil, ErrInputError
@@ -433,12 +416,6 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		var replyString string
 		ID := event.Source.UserID
 		switch command {
-		case "額度":
-			if rs, err := handleQuota(args); err != nil {
-				replyString = err.Error()
-			} else {
-				replyString = rs
-			}
 		case "吃", "開":
 			if container, err := handleNewOrder(args, ID); err != nil {
 				replyString = err.Error()
