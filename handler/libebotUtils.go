@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"path/filepath"
+	"strings"
 
-	"github.com/JohnsonYuanTW/NCAEats/models"
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
@@ -38,67 +39,79 @@ func getQuota(bot *linebot.Client) (int64, error) {
 }
 
 // Flex response
-const (
-	restaurantListFlexContainerPath = "./templates/restaurantListFlexContainer.json"
-	restaurantListBoxComponentPath  = "./templates/restaurantListBoxComponent.json"
-	menuItemListFlexContainerPath   = "./templates/menuItemListFlexContainer.json"
-	menuItemListBoxComponentPath    = "./templates/menuItemListBoxComponent.json"
-)
+// Load JSON template
+var templates map[string]string
 
-func getFlexContainer(path string, data ...interface{}) (linebot.FlexContainer, error) {
-	// Read json file
-	jsonData, err := ioutil.ReadFile(path)
+func loadTemplates(dir string) error {
+	templates = make(map[string]string)
+
+	files, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		// load the file content
+		content, err := ioutil.ReadFile(filepath.Join(dir, file.Name()))
+		if err != nil {
+			return err
+		}
+
+		// get the base name of the file (without extension)
+		baseName := strings.TrimSuffix(file.Name(), filepath.Ext(file.Name()))
+
+		// store it in the map
+		templates[baseName] = string(content)
+	}
+
+	return nil
+}
+
+// Unmarshal JSON template
+type unmarshalFunc func([]byte) (interface{}, error)
+
+func getComponent(template string, unmarshal unmarshalFunc, data ...interface{}) (interface{}, error) {
 	// Insert data (if any) into the template
-	template := string(jsonData)
 	if len(data) != 0 {
 		template = fmt.Sprintf(template, data...)
 	}
 
 	// Parse JSON to linebot flex container
-	flexContainer, err := linebot.UnmarshalFlexMessageJSON([]byte(template))
+	component, err := unmarshal([]byte(template))
 	if err != nil {
 		return nil, err
 	}
 
-	return flexContainer, nil
+	return component, nil
 }
 
-func getBoxComponent(path string, data ...interface{}) (linebot.BoxComponent, error) {
-	jsonData, err := ioutil.ReadFile(path)
+func unmarshalFlexContainer(template []byte) (interface{}, error) {
+	flexContainer, err := linebot.UnmarshalFlexMessageJSON(template)
+	return flexContainer, err
+}
+
+func unmarshalBoxComponent(data []byte) (interface{}, error) {
+	boxComponent := &linebot.BoxComponent{}
+	err := boxComponent.UnmarshalJSON(data)
+	return *boxComponent, err
+}
+
+func generateFlexContainer(template string, data ...interface{}) (linebot.FlexContainer, error) {
+	flex, err := getComponent(template, unmarshalFlexContainer, data...)
+	if err != nil {
+		return nil, err
+	}
+	return flex.(linebot.FlexContainer), nil
+}
+
+func generateBoxComponent(template string, data ...interface{}) (linebot.BoxComponent, error) {
+	box, err := getComponent(template, unmarshalBoxComponent, data...)
 	if err != nil {
 		return linebot.BoxComponent{}, err
 	}
-
-	template := string(jsonData)
-	if len(data) != 0 {
-		template = fmt.Sprintf(template, data...)
-	}
-
-	boxComponent := linebot.BoxComponent{}
-	err = boxComponent.UnmarshalJSON([]byte(template))
-	if err != nil {
-		return linebot.BoxComponent{}, err
-	}
-
-	return boxComponent, nil
-}
-
-func getRestaurantListFlexContainer() (linebot.FlexContainer, error) {
-	return getFlexContainer(restaurantListFlexContainerPath)
-}
-
-func getRestaurantListBoxComponent(restaurant *models.Restaurant) (linebot.BoxComponent, error) {
-	return getBoxComponent(restaurantListBoxComponentPath, restaurant.Name, restaurant.Tel, restaurant.Name, restaurant.Name)
-}
-
-func getMenuItemListFlexContainer(restaurant *models.Restaurant) (linebot.FlexContainer, error) {
-	return getFlexContainer(menuItemListFlexContainerPath, restaurant.Name, restaurant.Tel)
-}
-
-func getMenuItemListBoxComponent(menuItem *models.MenuItem) (linebot.BoxComponent, error) {
-	return getBoxComponent(menuItemListBoxComponentPath, menuItem.Name, menuItem.Price, menuItem.Name, menuItem.Name)
+	return box.(linebot.BoxComponent), nil
 }

@@ -18,6 +18,8 @@ import (
 var bot *linebot.Client
 var db *gorm.DB
 
+const templateDir = "./templates"
+
 // WIP: Refactor log to logrus
 // TODO: change llog back to log
 var llog = logrus.New()
@@ -28,6 +30,10 @@ var (
 	ErrRestaurantNotFound = errors.New("無此餐廳，請重新輸入")
 	ErrOrderInProgress    = errors.New("目前有正在進行中的訂單，請重新輸入")
 )
+
+func init() {
+	loadTemplates(templateDir)
+}
 
 func CreateLineBot(channelSecret string, channelAccessToken string) {
 	b, err := linebot.New(channelSecret, channelAccessToken)
@@ -103,9 +109,9 @@ func handleNewOrder(args []string, ID string) (linebot.FlexContainer, error) {
 	}
 
 	// Get and parse menuItemListFlexContainer.json
-	menuItemListFlexContainer, err := getMenuItemListFlexContainer(restaurant)
+	menuItemListFlexContainer, err := generateFlexContainer(templates["menuItemListFlexContainer"], restaurant.Name, restaurant.Tel)
 	if err != nil {
-		llog.WithError(err).WithField("Path", menuItemListFlexContainerPath).Error("無法解析 JSON")
+		llog.WithError(err).WithField("File", "menuItemListFlexContainer").Error("無法解析 JSON")
 		return nil, ErrSystemError
 	}
 
@@ -116,10 +122,10 @@ func handleNewOrder(args []string, ID string) (linebot.FlexContainer, error) {
 	}
 
 	// Add menuItems into container
-	for _, item := range menuItems {
-		newMenuItemBox, err := getMenuItemListBoxComponent(&item)
+	for _, menuItem := range menuItems {
+		newMenuItemBox, err := generateBoxComponent(templates["menuItemListBoxComponent"], menuItem.Name, menuItem.Price, menuItem.Name, menuItem.Name)
 		if err != nil {
-			llog.WithError(err).WithField("Path", menuItemListBoxComponentPath).Error("無法解析 JSON")
+			llog.WithError(err).WithField("File", "menuItemListBoxComponent").Error("無法解析 JSON")
 			return nil, ErrSystemError
 		}
 
@@ -283,21 +289,21 @@ func handleGetAllRestaurants(args []string) (linebot.FlexContainer, error) {
 	}
 
 	// Get and parse restaurantListFlexContainer.json
-	restaurantListFlexContainer, err := getRestaurantListFlexContainer()
+	restaurantListFlexContainer, err := generateFlexContainer(templates["restaurantListFlexContainer"])
 	if err != nil {
-		log.Printf("無法解析 %s: %v", restaurantListFlexContainerPath, err)
+		log.Printf("無法解析 %s: %v", "restaurantListFlexContainer", err)
 		return nil, fmt.Errorf("系統有誤，請重新輸入")
 	}
 
 	// Add restaurant box into container
 	for _, restaurant := range restaurants {
-		newRestaurantBox, err := getRestaurantListBoxComponent(restaurant)
+		restaurantListBoxComponent, err := generateBoxComponent(templates["restaurantListBoxComponent"], restaurant.Name, restaurant.Tel, restaurant.Name, restaurant.Name)
 		if err != nil {
-			log.Printf("無法解析 %s: %v", restaurantListBoxComponentPath, err)
+			log.Printf("無法解析 %s: %v", "restaurantListBoxComponent", err)
 			return nil, fmt.Errorf("系統有誤，請重新輸入")
 		}
 
-		restaurantListFlexContainer.(*linebot.BubbleContainer).Body.Contents = append(restaurantListFlexContainer.(*linebot.BubbleContainer).Body.Contents, &newRestaurantBox)
+		restaurantListFlexContainer.(*linebot.BubbleContainer).Body.Contents = append(restaurantListFlexContainer.(*linebot.BubbleContainer).Body.Contents, &restaurantListBoxComponent)
 	}
 
 	return restaurantListFlexContainer, nil
