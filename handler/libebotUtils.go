@@ -37,72 +37,79 @@ func getQuota(bot *linebot.Client) (int64, error) {
 	return quota.Value, nil
 }
 
-// 餐廳
-const restaurantListFlexContainerPath = "./templates/restaurantListFlexContainer.json"
-const restaurantListBoxComponentPath = "./templates/restaurantListBoxComponent.json"
+// Flex response
+const (
+	restaurantListFlexContainerPath = "./templates/restaurantListFlexContainer.json"
+	restaurantListBoxComponentPath  = "./templates/restaurantListBoxComponent.json"
+	menuItemListFlexContainerPath   = "./templates/menuItemListFlexContainer.json"
+	menuItemListBoxComponentPath    = "./templates/menuItemListBoxComponent.json"
+)
+
+func getFlexContainer(path string, data interface{}) (linebot.FlexContainer, error) {
+	jsonData, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	template := string(jsonData)
+	template = fmt.Sprintf(template, data)
+
+	flexContainer, err := linebot.UnmarshalFlexMessageJSON([]byte(template))
+	if err != nil {
+		return nil, err
+	}
+
+	return flexContainer, nil
+}
+
+func getBoxComponent(path string, data interface{}) (linebot.BoxComponent, error) {
+	jsonData, err := ioutil.ReadFile(path)
+	if err != nil {
+		return linebot.BoxComponent{}, err
+	}
+
+	template := string(jsonData)
+	template = fmt.Sprintf(template, data)
+
+	boxComponent := linebot.BoxComponent{}
+	err = boxComponent.UnmarshalJSON([]byte(template))
+	if err != nil {
+		return linebot.BoxComponent{}, err
+	}
+
+	return boxComponent, nil
+}
 
 func getRestaurantListFlexContainer() (linebot.FlexContainer, error) {
-	jsonData, err := ioutil.ReadFile(restaurantListFlexContainerPath)
-	if err != nil {
-		return nil, err
-	}
-	restaurantListFlexContainer, err := linebot.UnmarshalFlexMessageJSON(jsonData)
-	if err != nil {
-		return nil, err
-	}
-
-	return restaurantListFlexContainer, nil
+	return getFlexContainer(restaurantListFlexContainerPath, "")
 }
 
 func getRestaurantListBoxComponent(restaurant *models.Restaurant) (linebot.BoxComponent, error) {
-	jsonData, err := ioutil.ReadFile(restaurantListBoxComponentPath)
-	if err != nil {
-		return linebot.BoxComponent{}, err
-	}
-	template := string(jsonData)
-	template = fmt.Sprintf(template, restaurant.Name, restaurant.Tel, restaurant.Name, restaurant.Name)
-
-	restaurantBoxComponent := linebot.BoxComponent{}
-	err = restaurantBoxComponent.UnmarshalJSON([]byte(template))
-	if err != nil {
-		return linebot.BoxComponent{}, err
-	}
-
-	return restaurantBoxComponent, nil
+	return getBoxComponent(restaurantListBoxComponentPath, struct {
+		Name string
+		Tel  string
+	}{
+		Name: restaurant.Name,
+		Tel:  restaurant.Tel,
+	})
 }
 
-// 開
-const menuItemListFlexContainerPath = "./templates/menuItemListFlexContainer.json"
-const menuItemListBoxComponentPath = "./templates/menuItemListBoxComponent.json"
-
 func getMenuItemListFlexContainer(restaurant *models.Restaurant) (linebot.FlexContainer, error) {
-	jsonData, err := ioutil.ReadFile(menuItemListFlexContainerPath)
-	if err != nil {
-		return nil, err
-	}
-	template := string(jsonData)
-	template = fmt.Sprintf(template, restaurant.Name, restaurant.Tel)
-	menuItemListFlexContainer, err := linebot.UnmarshalFlexMessageJSON([]byte(template))
-	if err != nil {
-		return nil, err
-	}
-
-	return menuItemListFlexContainer, nil
+	return getFlexContainer(menuItemListFlexContainerPath, struct {
+		Name string
+		Tel  string
+	}{
+		Name: restaurant.Name,
+		Tel:  restaurant.Tel,
+	})
 }
 
 func getMenuItemListBoxComponent(menuItem *models.MenuItem) (linebot.BoxComponent, error) {
-	jsonData, err := ioutil.ReadFile(menuItemListBoxComponentPath)
-	if err != nil {
-		return linebot.BoxComponent{}, err
-	}
-	template := string(jsonData)
-	template = fmt.Sprintf(template, menuItem.Name, menuItem.Price, menuItem.Name, menuItem.Name)
-
-	menuItemBoxComponent := linebot.BoxComponent{}
-	err = menuItemBoxComponent.UnmarshalJSON([]byte(template))
-	if err != nil {
-		return linebot.BoxComponent{}, err
-	}
-
-	return menuItemBoxComponent, nil
+	return getBoxComponent(menuItemListBoxComponentPath, struct {
+		Name  string
+		Price int
+	}{
+		Name:  menuItem.Name,
+		Price: menuItem.Price,
+	})
 }
