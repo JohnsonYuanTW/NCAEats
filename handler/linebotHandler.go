@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/JohnsonYuanTW/NCAEats/models"
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 	"gorm.io/gorm"
@@ -16,14 +18,25 @@ import (
 var bot *linebot.Client
 var db *gorm.DB
 
+// WIP: Refactor log to logrus
+// TODO: change llog back to log
+var llog = logrus.New()
+
+var (
+	ErrInputError         = errors.New("指令輸入錯誤，請重新輸入")
+	ErrSystemError        = errors.New("系統有誤，請重新輸入")
+	ErrRestaurantNotFound = errors.New("無此餐廳，請重新輸入")
+	ErrOrderInProgress    = errors.New("目前有正在進行中的訂單，請重新輸入")
+)
+
 func CreateLineBot(channelSecret string, channelAccessToken string) {
 	b, err := linebot.New(channelSecret, channelAccessToken)
 	if err != nil {
-		log.Println("Bot creation err:")
+		llog.WithError(err).Error("Bot creation error")
 		panic(err)
 	}
 	bot = b
-	log.Println("Bot Created:", GetBot())
+	llog.WithField("bot", GetBot().GetBotInfo()).Info("Bot Created")
 }
 
 func GetBot() *linebot.Client {
@@ -37,13 +50,14 @@ func SetDB(d *gorm.DB) {
 func handleQuota(args []string) (string, error) {
 	// Error handling
 	if len(args) != 1 || args[0] != "" {
-		return "", fmt.Errorf("指令輸入錯誤，請重新輸入")
+		return "", ErrInputError
 	}
 
 	// Get quota
 	quota, err := getQuota(bot)
 	if err != nil {
-		return "", fmt.Errorf("無法獲取訊息額度: %v", err)
+		llog.WithError(err).Error("無法獲取訊息額度")
+		return "", errors.New("無法獲取訊息額度")
 	}
 
 	replyString := fmt.Sprintf("這個官方帳號尚有 %d 則訊息額度\n", quota)
@@ -52,30 +66,31 @@ func handleQuota(args []string) (string, error) {
 
 func handleNewOrder(args []string, ID string) (linebot.FlexContainer, error) {
 	if len(args) != 1 || args[0] == "" {
-		return nil, fmt.Errorf("指令輸入錯誤，請重新輸入")
+		return nil, ErrInputError
 	}
 
 	restaurantName := args[0]
 	restaurant, err := models.GetRestaurantByName(db, restaurantName)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("無此餐廳，請重新輸入")
+			return nil, ErrRestaurantNotFound
 		}
-		log.Printf("無法取得 %s 餐廳資訊: %v", restaurantName, err)
-		return nil, fmt.Errorf("系統有誤，請重新輸入")
+		llog.WithError(err).Error("無法取得 %s 餐廳資訊", restaurantName)
+		return nil, ErrSystemError
 	}
 
 	menuItems, err := models.GetMenuItemsByRestaurantName(db, restaurantName)
 	if err != nil {
-		log.Printf("無法取得 %s 的餐點項目: %v", restaurantName, err)
-		return nil, fmt.Errorf("系統有誤，請重新輸入")
+		llog.WithError(err).Error("無法取得 %s 的餐點項目", restaurantName)
+		return nil, ErrSystemError
 	}
 
 	order, err := getActiveOrderOfIDWithErrorHandling(ID)
 	if err != nil {
 		return nil, err
-	} else if order != nil {
-		return nil, fmt.Errorf("目前有正在進行中的訂單，請重新輸入")
+	}
+	if order != nil {
+		return nil, ErrOrderInProgress
 	}
 
 	newOrder := &models.Order{
@@ -83,26 +98,32 @@ func handleNewOrder(args []string, ID string) (linebot.FlexContainer, error) {
 		Restaurant: restaurant,
 	}
 	if err = newOrder.CreateOrder(db); err != nil {
-		log.Printf("使用者 %s 無法開單: %v", getDisplayNameFromID(ID), err)
-		return nil, fmt.Errorf("系統問題無法開單，請重新輸入")
+		llog.WithError(err).WithField("User", getDisplayNameFromID(ID)).Error("系統問題，無法開單")
+		return nil, ErrSystemError
 	}
 
 	// Get and parse menuItemListFlexContainer.json
 	menuItemListFlexContainer, err := getMenuItemListFlexContainer(restaurant)
 	if err != nil {
-		log.Printf("無法解析 %s: %v", menuItemListBoxComponentPath, err)
-		return nil, fmt.Errorf("系統有誤，請重新輸入")
+		llog.WithError(err).WithField("Path", menuItemListFlexContainerPath).Error("無法解析 JSON")
+		return nil, ErrSystemError
+	}
+
+	// Access the contents array in menuItemListFlexContainer
+	bubbleContainer, ok := menuItemListFlexContainer.(*linebot.BubbleContainer)
+	if !ok {
+		return nil, ErrSystemError
 	}
 
 	// Add menuItems into container
 	for _, item := range menuItems {
 		newMenuItemBox, err := getMenuItemListBoxComponent(&item)
 		if err != nil {
-			log.Printf("無法解析 %s: %v", menuItemListBoxComponentPath, err)
-			return nil, fmt.Errorf("系統有誤，請重新輸入")
+			llog.WithError(err).WithField("Path", menuItemListBoxComponentPath).Error("無法解析 JSON")
+			return nil, ErrSystemError
 		}
 
-		menuItemListFlexContainer.(*linebot.BubbleContainer).Body.Contents = append(menuItemListFlexContainer.(*linebot.BubbleContainer).Body.Contents, &newMenuItemBox)
+		bubbleContainer.Body.Contents = append(bubbleContainer.Body.Contents, &newMenuItemBox)
 	}
 	return menuItemListFlexContainer, nil
 }
