@@ -3,7 +3,6 @@ package handler
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -21,14 +20,18 @@ var db *gorm.DB
 const templateDir = "./templates"
 
 // WIP: Refactor log to logrus
-// TODO: change llog back to log
-var llog = logrus.New()
+// TODO: change log back to log
+var log = logrus.New()
 
 var (
 	ErrInputError         = errors.New("指令輸入錯誤，請重新輸入")
 	ErrSystemError        = errors.New("系統有誤，請重新輸入")
 	ErrRestaurantNotFound = errors.New("無此餐廳，請重新輸入")
+	ErrMenuItemNotFound   = errors.New("無此品項，請重新輸入")
 	ErrOrderInProgress    = errors.New("目前有正在進行中的訂單，請重新輸入")
+	ErrNoOrderInProgress  = errors.New("目前沒有正在進行中的訂單，請重新輸入")
+	ErrNewRestaurantError = errors.New("無法新增餐廳，請重新輸入")
+	ErrNewMenuItemError   = errors.New("無法新增餐點")
 )
 
 func init() {
@@ -38,11 +41,11 @@ func init() {
 func CreateLineBot(channelSecret string, channelAccessToken string) {
 	b, err := linebot.New(channelSecret, channelAccessToken)
 	if err != nil {
-		llog.WithError(err).Error("Bot creation error")
+		log.WithError(err).Error("Bot creation error")
 		panic(err)
 	}
 	bot = b
-	llog.WithField("bot", GetBot().GetBotInfo()).Info("Bot Created")
+	log.WithField("bot", GetBot().GetBotInfo()).Info("Bot Created")
 }
 
 func GetBot() *linebot.Client {
@@ -64,13 +67,13 @@ func handleNewOrder(args []string, ID string) (linebot.FlexContainer, error) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrRestaurantNotFound
 		}
-		llog.WithError(err).Error("無法取得 %s 餐廳資訊", restaurantName)
+		log.WithError(err).Error("無法取得 %s 餐廳資訊", restaurantName)
 		return nil, ErrSystemError
 	}
 
 	menuItems, err := models.GetMenuItemsByRestaurantName(db, restaurantName)
 	if err != nil {
-		llog.WithError(err).Error("無法取得 %s 的餐點項目", restaurantName)
+		log.WithError(err).Error("無法取得 %s 的餐點項目", restaurantName)
 		return nil, ErrSystemError
 	}
 
@@ -87,14 +90,14 @@ func handleNewOrder(args []string, ID string) (linebot.FlexContainer, error) {
 		Restaurant: restaurant,
 	}
 	if err = newOrder.CreateOrder(db); err != nil {
-		llog.WithError(err).WithField("User", getDisplayNameFromID(ID)).Error("系統問題，無法開單")
+		log.WithError(err).WithField("User", getDisplayNameFromID(ID)).Error("系統問題，無法開單")
 		return nil, ErrSystemError
 	}
 
 	// Get and parse menuItemListFlexContainer.json
 	menuItemListFlexContainer, err := generateFlexContainer(templates["menuItemListFlexContainer"], restaurant.Name, restaurant.Tel)
 	if err != nil {
-		llog.WithError(err).WithField("File", "menuItemListFlexContainer").Error("無法解析 JSON")
+		log.WithError(err).WithField("File", "menuItemListFlexContainer").Error("無法解析 JSON")
 		return nil, ErrSystemError
 	}
 
@@ -108,7 +111,7 @@ func handleNewOrder(args []string, ID string) (linebot.FlexContainer, error) {
 	for _, menuItem := range menuItems {
 		newMenuItemBox, err := generateBoxComponent(templates["menuItemListBoxComponent"], menuItem.Name, menuItem.Price, menuItem.Name, menuItem.Name)
 		if err != nil {
-			llog.WithError(err).WithField("File", "menuItemListBoxComponent").Error("無法解析 JSON")
+			log.WithError(err).WithField("File", "menuItemListBoxComponent").Error("無法解析 JSON")
 			return nil, ErrSystemError
 		}
 
@@ -122,7 +125,7 @@ func handleNewOrderItem(args []string, ID string) (string, error) {
 
 	// Error handling
 	if len(args) < 1 {
-		return "", fmt.Errorf("指令輸入錯誤，請重新輸入")
+		return "", ErrInputError
 	}
 
 	// get username and display first part of response
@@ -131,15 +134,15 @@ func handleNewOrderItem(args []string, ID string) (string, error) {
 
 	// Count number of orders
 	if count, err := models.CountActiveOrderOfOwnerID(db, ID); err != nil {
-		log.Printf("無法計算 %s 的訂單數量: %v", getDisplayNameFromID(ID), err)
-		return "", fmt.Errorf("系統有誤，請重新輸入")
+		log.WithError(err).WithField("User", getDisplayNameFromID(ID)).Error("無法計算訂單數量")
+		return "", ErrSystemError
 	} else if count != 1 {
 		if count < 1 {
-			return "", fmt.Errorf("目前沒有正在進行重的訂單")
+			return "", ErrNoOrderInProgress
 		} else {
 			// count > 1
-			log.Printf("使用者 %s 目前有 %d 筆訂單", getDisplayNameFromID(ID), count)
-			return "", fmt.Errorf("訂單狀態有誤，請重新輸入")
+			log.WithField("User", getDisplayNameFromID(ID)).Errorf("使用者目前有 %d 筆訂單", count)
+			return "", ErrSystemError
 		}
 	}
 
@@ -156,10 +159,10 @@ func handleNewOrderItem(args []string, ID string) (string, error) {
 			continue
 		} else if menuItem, err := models.GetMenuItemByNameAndRestaurantName(db, itemName, order.Restaurant.Name); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return "", fmt.Errorf("菜單中不包含餐點 %s，請重新輸入", itemName)
+				return "", ErrMenuItemNotFound
 			}
-			log.Printf("無法取得 %s 餐點資訊: %v", itemName, err)
-			return "", fmt.Errorf("系統有誤，請重新輸入")
+			log.WithField("User", getDisplayNameFromID(ID)).Errorf("無法取得 %s 餐點資訊", itemName)
+			return "", ErrSystemError
 		} else {
 			newOrderDetail := &models.OrderDetail{}
 			newOrderDetail.Owner, newOrderDetail.Order, newOrderDetail.MenuItem = ID, order, menuItem
@@ -174,7 +177,7 @@ func handleNewOrderItem(args []string, ID string) (string, error) {
 func handleNewRestaurant(args []string) (string, error) {
 	// Error handling: check if there are any arguments
 	if len(args) == 0 {
-		return "", fmt.Errorf("指令輸入錯誤，請重新輸入")
+		return "", ErrInputError
 	}
 
 	var restaurants []*models.Restaurant
@@ -184,14 +187,14 @@ func handleNewRestaurant(args []string) (string, error) {
 		itemArgs := strings.Split(item, ",")
 		// Check if the argument is valid
 		if len(itemArgs) < 2 {
-			return "", fmt.Errorf("指令輸入錯誤，請重新輸入")
+			return "", ErrInputError
 		}
 		name, tel := itemArgs[0], itemArgs[1]
 		newRestaurant := &models.Restaurant{Name: name, Tel: tel}
 		// Create the new restaurant in the database
 		err := newRestaurant.CreateRestaurant(db)
 		if err != nil {
-			return "", fmt.Errorf("無法新增餐廳，請重新輸入")
+			return "", ErrNewRestaurantError
 		}
 		// Add the new restaurant to the list of created restaurants
 		restaurants = append(restaurants, newRestaurant)
@@ -199,7 +202,7 @@ func handleNewRestaurant(args []string) (string, error) {
 
 	// Check if any restaurants were actually created
 	if len(restaurants) == 0 {
-		return "", fmt.Errorf("沒有新增任何餐廳")
+		return "", ErrNewRestaurantError
 	}
 
 	// Concatenate the reply string using a strings.Builder
@@ -212,7 +215,7 @@ func handleNewRestaurant(args []string) (string, error) {
 
 func handleNewMenuItem(args []string) (string, error) {
 	if len(args) < 2 {
-		return "", fmt.Errorf("指令輸入錯誤，請重新輸入")
+		return "", ErrInputError
 	}
 
 	// Get restaurant
@@ -220,14 +223,14 @@ func handleNewMenuItem(args []string) (string, error) {
 	restaurant, err := models.GetRestaurantByName(db, restaurantName)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", fmt.Errorf("無此餐廳 %s，請重新輸入", restaurantName)
+			return "", ErrRestaurantNotFound
 		}
-		log.Printf("無法取得 %s 餐廳資訊: %v", restaurantName, err)
-		return "", fmt.Errorf("系統有誤，請重新輸入")
+		log.WithError(err).Errorf("無法取得 %s 餐廳資訊", restaurantName)
+		return "", ErrSystemError
 	}
 
 	if len(items) == 0 {
-		return "", fmt.Errorf("沒有新增任何餐點")
+		return "", ErrNewMenuItemError
 	}
 
 	// Create menuitem
@@ -236,17 +239,17 @@ func handleNewMenuItem(args []string) (string, error) {
 	for _, item := range items {
 		itemArgs := strings.Split(item, ",")
 		if len(itemArgs) < 2 {
-			return "", fmt.Errorf("指令輸入錯誤，請重新輸入")
+			return "", ErrInputError
 		}
 		name := itemArgs[0]
 		price, err := strconv.Atoi(itemArgs[1])
 		if err != nil {
-			return "", fmt.Errorf("價格輸入錯誤，請重新輸入")
+			return "", ErrInputError
 		}
 
 		newMenuItem := &models.MenuItem{Name: name, Price: price, Restaurant: restaurant}
 		if err := newMenuItem.CreateMenuItem(db); err != nil {
-			return "", fmt.Errorf("無法新增餐點，請重新輸入")
+			return "", ErrNewMenuItemError
 		}
 
 		sb.WriteString(fmt.Sprintf("餐點 %s %d 元\n", name, price))
@@ -258,7 +261,7 @@ func handleNewMenuItem(args []string) (string, error) {
 func handleGetAllRestaurants(args []string) (linebot.FlexContainer, error) {
 	// Error handling
 	if len(args) > 1 || args[0] != "" {
-		return nil, fmt.Errorf("指令輸入錯誤，請重新輸入")
+		return nil, ErrInputError
 	}
 
 	// Get restaurant list
@@ -267,23 +270,23 @@ func handleGetAllRestaurants(args []string) (linebot.FlexContainer, error) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		}
-		log.Printf("無法取得餐廳資訊: %v", err)
-		return nil, fmt.Errorf("系統有誤，請重新輸入")
+		log.WithError(err).Error("無法取得餐廳列表")
+		return nil, ErrSystemError
 	}
 
 	// Get and parse restaurantListFlexContainer.json
 	restaurantListFlexContainer, err := generateFlexContainer(templates["restaurantListFlexContainer"])
 	if err != nil {
-		log.Printf("無法解析 %s: %v", "restaurantListFlexContainer", err)
-		return nil, fmt.Errorf("系統有誤，請重新輸入")
+		log.WithError(err).Error("無法解析 restaurantListFlexContainer")
+		return nil, ErrSystemError
 	}
 
 	// Add restaurant box into container
 	for _, restaurant := range restaurants {
 		restaurantListBoxComponent, err := generateBoxComponent(templates["restaurantListBoxComponent"], restaurant.Name, restaurant.Tel, restaurant.Name, restaurant.Name)
 		if err != nil {
-			log.Printf("無法解析 %s: %v", "restaurantListBoxComponent", err)
-			return nil, fmt.Errorf("系統有誤，請重新輸入")
+			log.WithError(err).Error("無法解析 restaurantListBoxComponent")
+			return nil, ErrSystemError
 		}
 
 		restaurantListFlexContainer.(*linebot.BubbleContainer).Body.Contents = append(restaurantListFlexContainer.(*linebot.BubbleContainer).Body.Contents, &restaurantListBoxComponent)
@@ -298,8 +301,8 @@ func getActiveOrderOfIDWithErrorHandling(ID string) (*models.Order, error) {
 	var err error
 	username := getDisplayNameFromID(ID)
 	if orders, err = models.GetActiveOrdersOfID(db, ID); err != nil {
-		log.Printf("無法取得 %s 的訂單資訊: %v", username, err)
-		return nil, fmt.Errorf("系統有誤，請重新輸入")
+		log.WithError(err).Errorf("無法取得 %s 的訂單資訊", username)
+		return nil, ErrSystemError
 	}
 
 	if count := len(orders); count == 1 {
@@ -308,15 +311,15 @@ func getActiveOrderOfIDWithErrorHandling(ID string) (*models.Order, error) {
 		return nil, nil
 	} else {
 		// count > 1
-		log.Printf("使用者 %s 目前有 %d 份訂單", username, count)
-		return nil, fmt.Errorf("目前訂單數量有誤，請重新輸入")
+		log.WithField("User", username).Errorf("使用者目前有 %d 筆訂單", count)
+		return nil, ErrSystemError
 	}
 }
 
 func handleClearOrder(args []string, ID string) (string, error) {
 	// Error handling
 	if len(args) > 1 || args[0] != "" {
-		return "", fmt.Errorf("指令輸入錯誤，請重新輸入")
+		return "", ErrInputError
 	}
 
 	// Get active order
@@ -325,19 +328,19 @@ func handleClearOrder(args []string, ID string) (string, error) {
 		return "", err
 	}
 	if order == nil {
-		return "", fmt.Errorf("目前沒有正在進行中的訂單，請重新輸入")
+		return "", ErrNoOrderInProgress
 	}
 
 	// Delete orderDetails and order
 	err = models.DeleteOrderDetailsOfOrderID(db, order.ID)
 	if err != nil {
-		log.Printf("無法刪除 order_id 為 %d 的訂單細項: %v", order.ID, err)
-		return "", fmt.Errorf("目前訂單狀況有誤，請重新輸入")
+		log.WithError(err).Errorf("無法刪除 ID %d 的訂單細項", order.ID)
+		return "", ErrSystemError
 	}
 	err = models.DeleteOrderOfID(db, order.ID)
 	if err != nil {
-		log.Printf("無法刪除 order_id 為 %d 的訂單: %v", order.ID, err)
-		return "", fmt.Errorf("目前訂單狀況有誤，請重新輸入")
+		log.WithError(err).Errorf("無法刪除 ID %d 的訂單", order.ID)
+		return "", ErrSystemError
 	}
 
 	return "已清除訂單", nil
@@ -345,7 +348,7 @@ func handleClearOrder(args []string, ID string) (string, error) {
 
 func handleStatistic(args []string, ID string) (string, error) {
 	if len(args) > 1 || args[0] != "" {
-		return "", fmt.Errorf("指令輸入錯誤，請重新輸入")
+		return "", ErrInputError
 	}
 
 	// Get active order
@@ -354,15 +357,15 @@ func handleStatistic(args []string, ID string) (string, error) {
 		return "", err
 	}
 	if order == nil {
-		return "", fmt.Errorf("目前沒有正在進行中的訂單，請重新輸入")
+		return "", ErrNoOrderInProgress
 	}
 
 	// Get order details
 	replyString := fmt.Sprintf("%s:\n", order.Restaurant.Name)
 	orderDetails, err := models.GetActiveOrderDetailsOfID(db, order.ID)
 	if err != nil {
-		log.Printf("無法取得 order_id 為 %d 的訂單細項: %v", order.ID, err)
-		return "", fmt.Errorf("目前訂單狀況有誤，請重新輸入")
+		log.WithError(err).Errorf("無法取得 ID %d 的訂單細項", order.ID)
+		return "", ErrSystemError
 	}
 	for _, od := range orderDetails {
 		userName := getDisplayNameFromID(od.Owner)
@@ -377,8 +380,8 @@ func handleGetAllOrders(args []string, ID string) (string, error) {
 		replyString = "訂單列表:\n"
 		orders, err := models.GetActiveOrders(db)
 		if err != nil {
-			log.Printf("無法取得所有訂單: %v", err)
-			return "", fmt.Errorf("無法取得所有訂單，請重新輸入")
+			log.WithError(err).Error("無法取得所有訂單")
+			return "", ErrSystemError
 		}
 		for _, order := range orders {
 			username := getDisplayNameFromID(ID)
@@ -386,7 +389,7 @@ func handleGetAllOrders(args []string, ID string) (string, error) {
 		}
 		return replyString, nil
 	} else {
-		return "", fmt.Errorf("指令輸入錯誤，請重新輸入")
+		return "", ErrInputError
 	}
 }
 
@@ -394,12 +397,10 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	var err error
 	events, err := bot.ParseRequest(r)
 	if err != nil {
-		log.Println("Line msg read err:", err)
-	}
-	if err != nil {
 		if err == linebot.ErrInvalidSignature {
 			w.WriteHeader(400)
 		} else {
+			log.WithError(err).Error("Bot 有誤，無法解析請求")
 			w.WriteHeader(500)
 		}
 		return
@@ -420,7 +421,7 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			if container, err := handleNewOrder(args, ID); err != nil {
 				replyString = err.Error()
 			} else {
-				sendReplyFlexMessage(bot, event, "開單", container)
+				sendReply(bot, event, "開單", container)
 				continue
 			}
 		case "點":
@@ -447,7 +448,7 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			} else if err != nil {
 				replyString = err.Error()
 			} else {
-				sendReplyFlexMessage(bot, event, "餐廳列表", container)
+				sendReply(bot, event, "餐廳列表", container)
 				continue
 			}
 		case "清除":
