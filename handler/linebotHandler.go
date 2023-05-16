@@ -16,12 +16,9 @@ import (
 
 var bot *linebot.Client
 var db *gorm.DB
+var log = logrus.New()
 
 const templateDir = "./templates"
-
-// WIP: Refactor log to logrus
-// TODO: change log back to log
-var log = logrus.New()
 
 var (
 	ErrInputError         = errors.New("指令輸入錯誤，請重新輸入")
