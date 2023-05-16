@@ -15,39 +15,36 @@ type Order struct {
 	OrderDetails []OrderDetail
 }
 
-func initOrder() (err error) {
+func initOrder(db *gorm.DB) (err error) {
 	if err = db.AutoMigrate(&Order{}); err != nil {
 		log.Fatalf("Error initializing Order: %v", err)
 	}
 	return
 }
 
-func (o *Order) CreateOrder() (*Order, error) {
-	if err := db.Create(&o).Error; err != nil {
-		return nil, err
-	}
-	return o, nil
+func (o *Order) CreateOrder(db *gorm.DB) error {
+	return db.Create(&o).Error
 }
 
-func GetActiveOrders() ([]Order, error) {
+func GetActiveOrders(db *gorm.DB) ([]Order, error) {
 	var orders []Order
 	result := db.Model(&Order{}).Preload(clause.Associations).Find(&orders)
 	return orders, result.Error
 }
 
-func GetActiveOrdersOfID(id string) ([]Order, error) {
+func GetActiveOrdersOfID(db *gorm.DB, id string) ([]Order, error) {
 	var orders []Order
 	result := db.Model(&Order{}).Preload("Restaurant").Where("owner=?", id).Find(&orders)
 	return orders, result.Error
 }
 
-func CountActiveOrderOfOwnerID(id string) (int64, error) {
+func CountActiveOrderOfOwnerID(db *gorm.DB, id string) (int64, error) {
 	var count int64
 	result := db.Model(&Order{}).Where("owner=?", id).Count(&count)
 	return count, result.Error
 }
 
-func DeleteOrderOfID(id uint) error {
+func DeleteOrderOfID(db *gorm.DB, id uint) error {
 	result := db.Model(&Order{}).Where("id=?", id).Delete(&Order{})
 	return result.Error
 }

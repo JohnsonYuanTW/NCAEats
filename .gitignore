@@ -1,4 +1,3 @@
-LineBotTemplate
 ### core template
 *.swp
 *.*~
@@ -189,6 +188,8 @@ go.work
 
 !README.md
 !LICENSE
+
+!templates/*.json
 
 # !Makefile
 

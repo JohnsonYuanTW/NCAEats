@@ -1,0 +1,17 @@
+{
+    "type": "bubble",
+    "body": {
+        "type": "box",
+        "layout": "vertical",
+        "spacing": "md",
+        "contents": [
+            {
+                "type": "text",
+                "text": "餐廳列表",
+                "size": "xxl",
+                "weight": "bold",
+                "offsetBottom": "md"
+            }
+        ]
+    }
+}

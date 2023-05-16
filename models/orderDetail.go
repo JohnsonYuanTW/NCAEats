@@ -15,21 +15,18 @@ type OrderDetail struct {
 	MenuItem   *MenuItem
 }
 
-func initOrderDetail() (err error) {
+func initOrderDetail(db *gorm.DB) (err error) {
 	if err := db.AutoMigrate(&OrderDetail{}); err != nil {
 		log.Fatalf("Failed to initialize OrderDetail: %v", err)
 	}
 	return
 }
 
-func (od *OrderDetail) CreateOrderDetail() (*OrderDetail, error) {
-	if err := db.Create(&od).Error; err != nil {
-		return nil, err
-	}
-	return od, nil
+func (od *OrderDetail) CreateOrderDetail(db *gorm.DB) error {
+	return db.Create(&od).Error
 }
 
-func GetActiveOrderDetailsOfID(orderID uint) ([]*OrderDetail, error) {
+func GetActiveOrderDetailsOfID(db *gorm.DB, orderID uint) ([]*OrderDetail, error) {
 	var orderDetails []*OrderDetail
 	result := db.Model(&OrderDetail{}).
 		Where("order_id=?", orderID).
@@ -38,7 +35,7 @@ func GetActiveOrderDetailsOfID(orderID uint) ([]*OrderDetail, error) {
 	return orderDetails, result.Error
 }
 
-func DeleteOrderDetailsOfOrderID(orderID uint) error {
+func DeleteOrderDetailsOfOrderID(db *gorm.DB, orderID uint) error {
 	var orderDetails []OrderDetail
 	result := db.Model(&OrderDetail{}).Where("order_id=?", orderID).Delete(&orderDetails)
 	return result.Error

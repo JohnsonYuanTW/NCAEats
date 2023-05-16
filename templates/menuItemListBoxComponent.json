@@ -1,0 +1,31 @@
+{
+    "type": "box",
+    "layout": "horizontal",
+    "spacing": "lg",
+    "contents": [
+      {
+        "type": "text",
+        "text": "%s",
+        "size": "sm",
+        "color": "#555555"
+      },
+      {
+        "type": "text",
+        "text": "%d",
+        "size": "sm",
+        "color": "#111111",
+        "align": "end"
+      }
+    ],
+    "backgroundColor": "#DCDFE5",
+    "cornerRadius": "sm",
+    "paddingStart": "lg",
+    "paddingTop": "sm",
+    "paddingBottom": "sm",
+    "paddingEnd": "lg",
+    "action": {
+      "type": "message",
+      "label": "點/%s",
+      "text": "點/%s"
+    }
+  }
