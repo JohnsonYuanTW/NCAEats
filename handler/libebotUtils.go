@@ -2,7 +2,8 @@ package handler
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
+
 	"log"
 	"path/filepath"
 	"strings"
@@ -37,7 +38,7 @@ var templates map[string]string
 func loadTemplates(dir string) error {
 	templates = make(map[string]string)
 
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
@@ -48,7 +49,7 @@ func loadTemplates(dir string) error {
 		}
 
 		// load the file content
-		content, err := ioutil.ReadFile(filepath.Join(dir, file.Name()))
+		content, err := os.ReadFile(filepath.Join(dir, file.Name()))
 		if err != nil {
 			return err
 		}
