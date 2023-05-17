@@ -10,46 +10,6 @@ import (
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
-func getDisplayNameFromID(userID string) string {
-	res, err := bot.GetProfile(userID).Do()
-	if err != nil {
-		log.WithError(err).WithField("User", userID).Error("無法取得使用者 ID，請使用者加入好友")
-		return userID
-	}
-	return res.DisplayName
-}
-
-func sendReply(bot *linebot.Client, event *linebot.Event, msg ...interface{}) {
-	var err error
-
-	switch len(msg) {
-	case 1:
-		// We expect a single string argument for a text message.
-		text, ok := msg[0].(string)
-		if !ok {
-			log.Errorf("sendReply: 文字訊息僅可傳送字串，原文: %v", msg[0])
-			return
-		}
-		_, err = bot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(text)).Do()
-	case 2:
-		// We expect two arguments (a string and a FlexContainer) for a flex message.
-		altText, ok1 := msg[0].(string)
-		flexContainer, ok2 := msg[1].(linebot.FlexContainer)
-		if !ok1 || !ok2 {
-			log.Errorf("sendReply: flex 訊息需有 altText 與 FlexContainer，原文: %v, %v", altText, flexContainer)
-			return
-		}
-		_, err = bot.ReplyMessage(event.ReplyToken, linebot.NewFlexMessage(altText, flexContainer)).Do()
-	default:
-		log.Errorf("sendReply: 參數數量不正確，原文數量: %d，參數 ß0: %v", len(msg), msg[0])
-		return
-	}
-
-	if err != nil {
-		log.WithError(err).Error("無法傳送回覆")
-	}
-}
-
 // Flex response
 // Load JSON template
 var templates map[string]string
