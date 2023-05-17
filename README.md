@@ -7,7 +7,6 @@ Go Lunch Order Linebot is a tool designed to simplify the process of organizing 
 * Automated report generation for ease of ordering and payment collection
 
 ## Roadmap
-## Roadmap
 - [x] Project Initialization
     - [x] Implement basic functionalities for Linebot
     - [x] Utilize .env for managing environment variables
