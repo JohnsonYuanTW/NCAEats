@@ -13,7 +13,11 @@ Go Lunch Order Linebot is a tool designed to simplify the process of organizing 
 - [ ] Basic Functionality
     - [x] Implement listing all restaurants and order creation
     - [x] Enable creation of menu items and ordering
-    - [ ] Generate two reports
+    - [x] Generate two reports
+    - [ ] Multiple menu import methods
+        - [x] linebot
+        - [ ] .csv
+        - [ ] .xls, .xlsx
 - [ ] Refactoring
     - [x] Integrate gorm for Object-Relational Mapping (ORM)
     - [ ] Improve error handling using the `errors` package

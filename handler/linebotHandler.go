@@ -14,6 +14,7 @@ import (
 var bot *linebot.Client
 var db *gorm.DB
 var log = logrus.New()
+var SITE_URL string
 
 const templateDir = "./templates"
 
@@ -32,7 +33,8 @@ func init() {
 	loadTemplates(templateDir)
 }
 
-func CreateLineBot(channelSecret string, channelAccessToken string) {
+func CreateLineBot(channelSecret string, channelAccessToken string, siteUrl string) {
+	SITE_URL = siteUrl
 	b, err := linebot.New(channelSecret, channelAccessToken)
 	if err != nil {
 		log.WithError(err).Error("Bot creation error")

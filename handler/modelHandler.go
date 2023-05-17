@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -306,7 +307,9 @@ func handleClearOrder(args []string, ID string) (string, error) {
 	return "已清除訂單", nil
 }
 
+// This function handles the statistic of an active order for a given ID.
 func handleStatistic(args []string, ID string) (string, error) {
+	// Check if input is valid
 	if len(args) > 1 || args[0] != "" {
 		return "", ErrInputError
 	}
@@ -321,17 +324,69 @@ func handleStatistic(args []string, ID string) (string, error) {
 	}
 
 	// Get order details
-	replyString := fmt.Sprintf("%s:\n", order.Restaurant.Name)
 	orderDetails, err := models.GetActiveOrderDetailsOfID(db, order.ID)
 	if err != nil {
 		log.WithError(err).Errorf("無法取得 ID %d 的訂單細項", order.ID)
 		return "", ErrSystemError
 	}
+
+	// Calculate totals
+	totals := calculateTotals(orderDetails)
+
+	// Generate userReport
+	var userReport strings.Builder
+	fmt.Fprintf(&userReport, "%s<br>", order.Restaurant.Name)
 	for _, od := range orderDetails {
 		userName := getDisplayNameFromID(od.Owner)
-		replyString += fmt.Sprintf("%s: %s / %d\n", userName, od.MenuItem.Name, od.MenuItem.Price)
+		fmt.Fprintf(&userReport, "%s / %s / %d<br>", userName, od.MenuItem.Name, od.MenuItem.Price)
 	}
-	return replyString, nil
+
+	// Save userReport to a static HTML file
+	userReportPath := "./static/userReport.html"
+	if err := writeReportToFile(userReportPath, userReport.String()); err != nil {
+		return "", err
+	}
+
+	// Generate restaurantReport
+	var restaurantReport strings.Builder
+	totalItemCount := 0
+	totalPrice := 0
+
+	fmt.Fprintf(&restaurantReport, "%s:\n", order.Restaurant.Name)
+	for itemName, details := range totals {
+		count := len(details)
+		price := 0
+		if count > 0 {
+			price = details[0].MenuItem.Price * count
+		}
+		fmt.Fprintf(&restaurantReport, "%s / %d 份 / 共 %d 元\n", itemName, count, price)
+
+		totalItemCount += count
+		totalPrice += price
+	}
+
+	fmt.Fprintf(&restaurantReport, "總計: 共 %d 份 / 共 %d 元\n", totalItemCount, totalPrice)
+
+	// return restaurantReport
+	return SITE_URL + "/userReport\n\n" + restaurantReport.String(), nil
+}
+
+// writeReportToFile writes the provided content to a file at the specified path
+func writeReportToFile(path string, content string) error {
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		log.Printf("Could not write report to HTML file: %v", err)
+		return err
+	}
+	return nil
+}
+
+// This function calculates the totals for each item in the order.
+func calculateTotals(orderDetails []*models.OrderDetail) map[string][]*models.OrderDetail {
+	totals := make(map[string][]*models.OrderDetail)
+	for _, od := range orderDetails {
+		totals[od.MenuItem.Name] = append(totals[od.MenuItem.Name], od)
+	}
+	return totals
 }
 
 func handleGetAllOrders(args []string, ID string) (string, error) {
