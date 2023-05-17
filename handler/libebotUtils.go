@@ -2,41 +2,13 @@ package handler
 
 import (
 	"fmt"
-	"io/ioutil"
-	"log"
+	"os"
+
 	"path/filepath"
 	"strings"
 
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
-
-func getDisplayNameFromID(userID string) string {
-	res, err := bot.GetProfile(userID).Do()
-	if err != nil {
-		log.Println("UserID not Valid: ", err)
-	}
-	return res.DisplayName
-}
-
-func sendReply(bot *linebot.Client, event *linebot.Event, msg string) {
-	if _, err := bot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(msg)).Do(); err != nil {
-		log.Println("Send Text Replay err:", err)
-	}
-}
-
-func sendReplyFlexMessage(bot *linebot.Client, event *linebot.Event, altText string, contents linebot.FlexContainer) {
-	if _, err := bot.ReplyMessage(event.ReplyToken, linebot.NewFlexMessage(altText, contents)).Do(); err != nil {
-		log.Println("Send Flex Replay err:", err)
-	}
-}
-
-func getQuota(bot *linebot.Client) (int64, error) {
-	quota, err := bot.GetMessageQuota().Do()
-	if err != nil {
-		return 0, err
-	}
-	return quota.Value, nil
-}
 
 // Flex response
 // Load JSON template
@@ -45,7 +17,7 @@ var templates map[string]string
 func loadTemplates(dir string) error {
 	templates = make(map[string]string)
 
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
@@ -56,7 +28,7 @@ func loadTemplates(dir string) error {
 		}
 
 		// load the file content
-		content, err := ioutil.ReadFile(filepath.Join(dir, file.Name()))
+		content, err := os.ReadFile(filepath.Join(dir, file.Name()))
 		if err != nil {
 			return err
 		}
