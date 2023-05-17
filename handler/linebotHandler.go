@@ -27,7 +27,7 @@ var (
 	ErrMenuItemNotFound   = errors.New("無此品項，請重新輸入")
 	ErrOrderInProgress    = errors.New("目前有正在進行中的訂單，請重新輸入")
 	ErrNoOrderInProgress  = errors.New("目前沒有正在進行中的訂單，請重新輸入")
-	ErrNewRestaurantError = errors.New("無法新增餐廳，請重新輸入")
+	ErrNewRestaurantError = errors.New("無法新增餐廳")
 	ErrNewMenuItemError   = errors.New("無法新增餐點")
 )
 
