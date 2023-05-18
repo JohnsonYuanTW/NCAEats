@@ -51,7 +51,7 @@ func (a *AppHandler) handleNewOrder(args []string, ID string) (linebot.FlexConta
 	}
 
 	// Get and parse menuItemListFlexContainer.json
-	menuItemListFlexContainer, err := generateFlexContainer(templates["menuItemListFlexContainer"], restaurant.Name, restaurant.Tel)
+	menuItemListFlexContainer, err := a.Templates.generateFlexContainer("menuItemListFlexContainer", restaurant.Name, restaurant.Tel)
 	if err != nil {
 		a.Logger.WithError(err).WithField("File", "menuItemListFlexContainer").Error("無法解析 JSON")
 		return nil, ErrSystemError
@@ -65,7 +65,7 @@ func (a *AppHandler) handleNewOrder(args []string, ID string) (linebot.FlexConta
 
 	// Add menuItems into container
 	for _, menuItem := range menuItems {
-		newMenuItemBox, err := generateBoxComponent(templates["menuItemListBoxComponent"], menuItem.Name, menuItem.Price, menuItem.Name, menuItem.Name)
+		newMenuItemBox, err := a.Templates.generateBoxComponent("menuItemListBoxComponent", menuItem.Name, menuItem.Price, menuItem.Name, menuItem.Name)
 		if err != nil {
 			a.Logger.WithError(err).WithField("File", "menuItemListBoxComponent").Error("無法解析 JSON")
 			return nil, ErrSystemError
@@ -231,7 +231,7 @@ func (a *AppHandler) handleGetAllRestaurants(args []string) (linebot.FlexContain
 	}
 
 	// Get and parse restaurantListFlexContainer.json
-	restaurantListFlexContainer, err := generateFlexContainer(templates["restaurantListFlexContainer"])
+	restaurantListFlexContainer, err := a.Templates.generateFlexContainer("restaurantListFlexContainer")
 	if err != nil {
 		a.Logger.WithError(err).Error("無法解析 restaurantListFlexContainer")
 		return nil, ErrSystemError
@@ -239,7 +239,7 @@ func (a *AppHandler) handleGetAllRestaurants(args []string) (linebot.FlexContain
 
 	// Add restaurant box into container
 	for _, restaurant := range restaurants {
-		restaurantListBoxComponent, err := generateBoxComponent(templates["restaurantListBoxComponent"], restaurant.Name, restaurant.Tel, restaurant.Name, restaurant.Name)
+		restaurantListBoxComponent, err := a.Templates.generateBoxComponent("restaurantListBoxComponent", restaurant.Name, restaurant.Tel, restaurant.Name, restaurant.Name)
 		if err != nil {
 			a.Logger.WithError(err).Error("無法解析 restaurantListBoxComponent")
 			return nil, ErrSystemError

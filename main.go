@@ -53,7 +53,14 @@ func initDBConn(env map[string]string) (*gorm.DB, error) {
 
 func main() {
 	// Create logger
-	var log = logrus.New()
+	log := logrus.New()
+
+	// Create Template Handler
+	templates, err := handler.NewTemplateHandler("./templates")
+	if err != nil {
+		log.WithError(err).Fatal("JSON 模板初始化失敗")
+	}
+	log.Info("JSON 模板初始化成功")
 
 	// Load environment variables
 	env, err := config.LoadEnvVariables()
@@ -77,7 +84,7 @@ func main() {
 	log.Info("Linebot 建立成功")
 
 	// Create appHandler
-	appHandler, err := handler.NewAppHandler(log, env, bot, db)
+	appHandler, err := handler.NewAppHandler(log, templates, env, bot, db)
 	if err != nil {
 		log.WithError(err).Fatal("模型初始化失敗")
 	}

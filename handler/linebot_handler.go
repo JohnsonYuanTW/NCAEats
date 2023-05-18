@@ -9,8 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const templateDir = "./templates"
-
 var (
 	ErrInputError         = errors.New("指令輸入錯誤，請重新輸入")
 	ErrSystemError        = errors.New("系統有誤，請重新輸入")
@@ -21,10 +19,6 @@ var (
 	ErrNewRestaurantError = errors.New("無法新增餐廳")
 	ErrNewMenuItemError   = errors.New("無法新增餐點")
 )
-
-func init() {
-	loadTemplates(templateDir)
-}
 
 func (a *AppHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	var err error

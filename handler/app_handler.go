@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"reflect"
+
 	"github.com/JohnsonYuanTW/NCAEats/models"
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 	"github.com/sirupsen/logrus"
@@ -13,6 +15,7 @@ type DB struct {
 
 type AppHandler struct {
 	Logger          *logrus.Logger
+	Templates       *TemplateHandler
 	Env             map[string]string
 	Bot             *linebot.Client
 	MenuItemRepo    *models.MenuItemRepository
@@ -21,15 +24,16 @@ type AppHandler struct {
 	RestaurantRepo  *models.RestaurantRepository
 }
 
-func NewAppHandler(log *logrus.Logger, env map[string]string, bot *linebot.Client, db *gorm.DB) (*AppHandler, error) {
+func NewAppHandler(log *logrus.Logger, templates *TemplateHandler, env map[string]string, bot *linebot.Client, db *gorm.DB) (*AppHandler, error) {
 	// AppHandler Creation
 	baseRepo := &models.BaseRepository{
 		DB: db,
 	}
 	appHandler := &AppHandler{
-		Logger: log,
-		Env:    env,
-		Bot:    bot,
+		Logger:    log,
+		Templates: templates,
+		Env:       env,
+		Bot:       bot,
 		MenuItemRepo: &models.MenuItemRepository{
 			BaseRepository: baseRepo,
 		},
@@ -52,21 +56,18 @@ func NewAppHandler(log *logrus.Logger, env map[string]string, bot *linebot.Clien
 }
 
 func (a *AppHandler) initRepository() error {
-	initRepos := []struct {
-		Repo interface {
-			Init() error
-		}
-		Name string
+	initRepos := []interface {
+		Init() error
 	}{
-		{Repo: a.MenuItemRepo, Name: "MenuItem"},
-		{Repo: a.OrderRepo, Name: "Order"},
-		{Repo: a.OrderDetailRepo, Name: "OrderDetail"},
-		{Repo: a.RestaurantRepo, Name: "Restaurant"},
+		a.MenuItemRepo,
+		a.OrderRepo,
+		a.OrderDetailRepo,
+		a.RestaurantRepo,
 	}
 
 	for _, initRepo := range initRepos {
-		if err := initRepo.Repo.Init(); err != nil {
-			a.Logger.WithError(err).Fatalf("Failed to initialize %s", initRepo.Name)
+		if err := initRepo.Init(); err != nil {
+			a.Logger.WithError(err).Fatalf("Failed to initialize %s", reflect.TypeOf(initRepo).Elem().Name())
 			return err
 		}
 	}
