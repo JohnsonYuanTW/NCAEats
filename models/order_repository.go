@@ -38,15 +38,15 @@ func (r *OrderRepository) GetActiveOrders() ([]Order, error) {
 	return orders, result.Error
 }
 
-func (r *OrderRepository) GetActiveOrdersOfID(id string) ([]Order, error) {
+func (r *OrderRepository) GetActiveOrdersOfOwnerID(ownerID string) ([]Order, error) {
 	var orders []Order
-	result := r.DB.Model(&Order{}).Preload("Restaurant").Where("owner=?", id).Find(&orders)
+	result := r.DB.Preload("Restaurant").Where("owner=?", ownerID).Find(&orders)
 	return orders, result.Error
 }
 
-func (r *OrderRepository) CountActiveOrderOfOwnerID(id string) (int64, error) {
+func (r *OrderRepository) CountActiveOrdersOfOwnerID(ownerID string) (int64, error) {
 	var count int64
-	result := r.DB.Model(&Order{}).Where("owner=?", id).Count(&count)
+	result := r.DB.Model(&Order{}).Where("owner=?", ownerID).Count(&count)
 	return count, result.Error
 }
 

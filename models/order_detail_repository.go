@@ -30,17 +30,17 @@ func (r *OrderDetailRepository) CreateOrderDetail(od *OrderDetail) error {
 	return r.DB.Create(od).Error
 }
 
-func (r *OrderDetailRepository) GetActiveOrderDetailsOfID(orderID uint) ([]*OrderDetail, error) {
+func (r *OrderDetailRepository) GetActiveOrderDetailsByOrderID(orderID uint) ([]*OrderDetail, error) {
 	var orderDetails []*OrderDetail
-	result := r.DB.Model(&OrderDetail{}).
+	result := r.DB.
 		Where("order_id=?", orderID).
 		Preload("MenuItem").
 		Find(&orderDetails)
 	return orderDetails, result.Error
 }
 
-func (r *OrderDetailRepository) DeleteOrderDetailsOfOrderID(orderID uint) error {
+func (r *OrderDetailRepository) DeleteOrderDetailsByOrderID(orderID uint) error {
 	var orderDetails []OrderDetail
-	result := r.DB.Model(&OrderDetail{}).Where("order_id=?", orderID).Delete(&orderDetails)
+	result := r.DB.Where("order_id=?", orderID).Delete(&orderDetails)
 	return result.Error
 }

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -32,7 +33,7 @@ func (r *MenuItemRepository) CreateMenuItem(mi *MenuItem) error {
 
 func (r *MenuItemRepository) GetAllMenuItems() ([]MenuItem, error) {
 	var menuItems []MenuItem
-	result := r.DB.Model(&MenuItem{}).Find(&menuItems)
+	result := r.DB.Find(&menuItems)
 	return menuItems, result.Error
 }
 
@@ -47,15 +48,19 @@ func (r *MenuItemRepository) GetMenuItemsByRestaurantName(name string) ([]MenuIt
 	return restaurant.MenuItems, nil
 }
 
-func (r *MenuItemRepository) GetMenuItemByNameAndRestaurantName(itemName, restaurantName string) (*MenuItem, error) {
+func (r *MenuItemRepository) GetMenuItemByDetails(itemName, restaurantName string) (*MenuItem, error) {
 	var menuItem MenuItem
-	err := r.DB.Model(&MenuItem{}).
+	err := r.DB.
 		Preload("Restaurant", "name = ?", restaurantName).
 		Where("name = ?", itemName).
 		Take(&menuItem).Error
 
 	if err != nil {
 		return nil, err
+	}
+
+	if menuItem.Restaurant == nil || menuItem.Restaurant.Name != restaurantName {
+		return nil, errors.New("no matching menu item found")
 	}
 
 	return &menuItem, nil

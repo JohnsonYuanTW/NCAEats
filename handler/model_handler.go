@@ -88,7 +88,7 @@ func (a *AppHandler) handleNewOrderItem(args []string, ID string) (string, error
 	replyString = fmt.Sprintf("%s 點餐:\n", username)
 
 	// Count number of orders
-	if count, err := a.OrderRepo.CountActiveOrderOfOwnerID(ID); err != nil {
+	if count, err := a.OrderRepo.CountActiveOrdersOfOwnerID(ID); err != nil {
 		a.Logger.WithError(err).WithField("User", a.getDisplayNameFromID(ID)).Error("無法計算訂單數量")
 		return "", ErrSystemError
 	} else if count != 1 {
@@ -112,7 +112,7 @@ func (a *AppHandler) handleNewOrderItem(args []string, ID string) (string, error
 	for _, itemName := range args {
 		if itemName == "" {
 			continue
-		} else if menuItem, err := a.MenuItemRepo.GetMenuItemByNameAndRestaurantName(itemName, order.Restaurant.Name); err != nil {
+		} else if menuItem, err := a.MenuItemRepo.GetMenuItemByDetails(itemName, order.Restaurant.Name); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return "", ErrMenuItemNotFound
 			}
@@ -255,7 +255,7 @@ func (a *AppHandler) getActiveOrderOfIDWithErrorHandling(ID string) (*models.Ord
 	var orders []models.Order
 	var err error
 	username := a.getDisplayNameFromID(ID)
-	if orders, err = a.OrderRepo.GetActiveOrdersOfID(ID); err != nil {
+	if orders, err = a.OrderRepo.GetActiveOrdersOfOwnerID(ID); err != nil {
 		a.Logger.WithError(err).Errorf("無法取得 %s 的訂單資訊", username)
 		return nil, ErrSystemError
 	}
@@ -287,12 +287,12 @@ func (a *AppHandler) handleClearOrder(args []string, ID string) (string, error) 
 	}
 
 	// Delete orderDetails and order
-	err = a.OrderDetailRepo.DeleteOrderDetailsOfOrderID(order.ID)
+	err = a.OrderDetailRepo.DeleteOrderDetailsByOrderID(order.ID)
 	if err != nil {
 		a.Logger.WithError(err).Errorf("無法刪除 ID %d 的訂單細項", order.ID)
 		return "", ErrSystemError
 	}
-	err = a.OrderRepo.DeleteOrderOfID(order.ID)
+	err = a.OrderRepo.DeleteOrderByOrderID(order.ID)
 	if err != nil {
 		a.Logger.WithError(err).Errorf("無法刪除 ID %d 的訂單", order.ID)
 		return "", ErrSystemError
@@ -318,7 +318,7 @@ func (a *AppHandler) handleStatistic(args []string, ID string) (string, error) {
 	}
 
 	// Get order details
-	orderDetails, err := a.OrderDetailRepo.GetActiveOrderDetailsOfID(order.ID)
+	orderDetails, err := a.OrderDetailRepo.GetActiveOrderDetailsByOrderID(order.ID)
 	if err != nil {
 		a.Logger.WithError(err).Errorf("無法取得 ID %d 的訂單細項", order.ID)
 		return "", ErrSystemError

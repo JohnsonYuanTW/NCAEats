@@ -39,7 +39,7 @@ func (r *RestaurantRepository) GetAllRestaurants() ([]*Restaurant, error) {
 
 func (r *RestaurantRepository) GetRestaurantByName(name string) (*Restaurant, error) {
 	var restaurant Restaurant
-	if err := r.DB.Model(&Restaurant{}).Where("name=?", name).First(&restaurant).Error; err != nil {
+	if err := r.DB.Where("name=?", name).First(&restaurant).Error; err != nil {
 		return nil, err
 	}
 	return &restaurant, nil
@@ -47,6 +47,6 @@ func (r *RestaurantRepository) GetRestaurantByName(name string) (*Restaurant, er
 
 func (r *RestaurantRepository) DeleteRestaurant(ID int64) error {
 	var restaurant Restaurant
-	result := r.DB.Model(&Restaurant{}).Where("ID=?", ID).Delete(&restaurant)
+	result := r.DB.Where("ID=?", ID).Delete(&restaurant)
 	return result.Error
 }
