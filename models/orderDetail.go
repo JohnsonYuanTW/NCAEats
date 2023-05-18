@@ -1,7 +1,7 @@
 package models
 
 import (
-	"log"
+	"fmt"
 
 	"gorm.io/gorm"
 )
@@ -15,28 +15,32 @@ type OrderDetail struct {
 	MenuItem   *MenuItem
 }
 
-func initOrderDetail(db *gorm.DB) (err error) {
-	if err := db.AutoMigrate(&OrderDetail{}); err != nil {
-		log.Fatalf("Failed to initialize OrderDetail: %v", err)
+type OrderDetailRepository struct {
+	*BaseRepository
+}
+
+func (r *OrderDetailRepository) Init() (err error) {
+	if err := r.DB.AutoMigrate(&OrderDetail{}); err != nil {
+		return fmt.Errorf("error initializing OrderDetail: %v", err)
 	}
 	return
 }
 
-func (od *OrderDetail) CreateOrderDetail(db *gorm.DB) error {
-	return db.Create(&od).Error
+func (r *OrderDetailRepository) CreateOrderDetail(od *OrderDetail) error {
+	return r.DB.Create(od).Error
 }
 
-func GetActiveOrderDetailsOfID(db *gorm.DB, orderID uint) ([]*OrderDetail, error) {
+func (r *OrderDetailRepository) GetActiveOrderDetailsOfID(orderID uint) ([]*OrderDetail, error) {
 	var orderDetails []*OrderDetail
-	result := db.Model(&OrderDetail{}).
+	result := r.DB.Model(&OrderDetail{}).
 		Where("order_id=?", orderID).
 		Preload("MenuItem").
 		Find(&orderDetails)
 	return orderDetails, result.Error
 }
 
-func DeleteOrderDetailsOfOrderID(db *gorm.DB, orderID uint) error {
+func (r *OrderDetailRepository) DeleteOrderDetailsOfOrderID(orderID uint) error {
 	var orderDetails []OrderDetail
-	result := db.Model(&OrderDetail{}).Where("order_id=?", orderID).Delete(&orderDetails)
+	result := r.DB.Model(&OrderDetail{}).Where("order_id=?", orderID).Delete(&orderDetails)
 	return result.Error
 }

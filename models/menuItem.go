@@ -1,7 +1,7 @@
 package models
 
 import (
-	"log"
+	"fmt"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -15,26 +15,30 @@ type MenuItem struct {
 	Restaurant   *Restaurant
 }
 
-func initMenuItem(db *gorm.DB) (err error) {
-	if err = db.AutoMigrate(&MenuItem{}); err != nil {
-		log.Fatalf("Error initializing MenuItem: %v", err)
+type MenuItemRepository struct {
+	*BaseRepository
+}
+
+func (r *MenuItemRepository) Init() error {
+	if err := r.DB.AutoMigrate(&MenuItem{}); err != nil {
+		return fmt.Errorf("error initializing MenuItem: %v", err)
 	}
-	return
+	return nil
 }
 
-func (mi *MenuItem) CreateMenuItem(db *gorm.DB) error {
-	return db.Create(&mi).Error
+func (r *MenuItemRepository) CreateMenuItem(mi *MenuItem) error {
+	return r.DB.Create(mi).Error
 }
 
-func GetAllMenuItems(db *gorm.DB) ([]MenuItem, error) {
+func (r *MenuItemRepository) GetAllMenuItems() ([]MenuItem, error) {
 	var menuItems []MenuItem
-	result := db.Model(&MenuItem{}).Find(&menuItems)
+	result := r.DB.Model(&MenuItem{}).Find(&menuItems)
 	return menuItems, result.Error
 }
 
-func GetMenuItemsByRestaurantName(db *gorm.DB, name string) ([]MenuItem, error) {
+func (r *MenuItemRepository) GetMenuItemsByRestaurantName(name string) ([]MenuItem, error) {
 	var restaurant Restaurant
-	if err := db.
+	if err := r.DB.
 		Preload(clause.Associations).
 		Where("name = ?", name).
 		Take(&restaurant).Error; err != nil {
@@ -43,9 +47,9 @@ func GetMenuItemsByRestaurantName(db *gorm.DB, name string) ([]MenuItem, error) 
 	return restaurant.MenuItems, nil
 }
 
-func GetMenuItemByNameAndRestaurantName(db *gorm.DB, itemName, restaurantName string) (*MenuItem, error) {
+func (r *MenuItemRepository) GetMenuItemByNameAndRestaurantName(itemName, restaurantName string) (*MenuItem, error) {
 	var menuItem MenuItem
-	err := db.Model(&MenuItem{}).
+	err := r.DB.Model(&MenuItem{}).
 		Preload("Restaurant", "name = ?", restaurantName).
 		Where("name = ?", itemName).
 		Take(&menuItem).Error

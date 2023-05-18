@@ -12,33 +12,28 @@ import (
 	"gorm.io/gorm"
 )
 
-// TODO: Remove this and use dependency injection.
-func SetDB(d *gorm.DB) {
-	db = d
-}
-
-func handleNewOrder(args []string, ID string) (linebot.FlexContainer, error) {
+func (a *AppHandler) handleNewOrder(args []string, ID string) (linebot.FlexContainer, error) {
 	if len(args) != 1 || args[0] == "" {
 		return nil, ErrInputError
 	}
 
 	restaurantName := args[0]
-	restaurant, err := models.GetRestaurantByName(db, restaurantName)
+	restaurant, err := a.RestaurantRepo.GetRestaurantByName(restaurantName)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrRestaurantNotFound
 		}
-		log.WithError(err).Error("無法取得 %s 餐廳資訊", restaurantName)
+		a.Logger.WithError(err).Error("無法取得 %s 餐廳資訊", restaurantName)
 		return nil, ErrSystemError
 	}
 
-	menuItems, err := models.GetMenuItemsByRestaurantName(db, restaurantName)
+	menuItems, err := a.MenuItemRepo.GetMenuItemsByRestaurantName(restaurantName)
 	if err != nil {
-		log.WithError(err).Error("無法取得 %s 的餐點項目", restaurantName)
+		a.Logger.WithError(err).Error("無法取得 %s 的餐點項目", restaurantName)
 		return nil, ErrSystemError
 	}
 
-	order, err := getActiveOrderOfIDWithErrorHandling(ID)
+	order, err := a.getActiveOrderOfIDWithErrorHandling(ID)
 	if err != nil {
 		return nil, err
 	}
@@ -50,15 +45,15 @@ func handleNewOrder(args []string, ID string) (linebot.FlexContainer, error) {
 		Owner:      ID,
 		Restaurant: restaurant,
 	}
-	if err = newOrder.CreateOrder(db); err != nil {
-		log.WithError(err).WithField("User", getDisplayNameFromID(ID)).Error("系統問題，無法開單")
+	if err = a.OrderRepo.CreateOrder(newOrder); err != nil {
+		a.Logger.WithError(err).WithField("User", a.getDisplayNameFromID(ID)).Error("系統問題，無法開單")
 		return nil, ErrSystemError
 	}
 
 	// Get and parse menuItemListFlexContainer.json
 	menuItemListFlexContainer, err := generateFlexContainer(templates["menuItemListFlexContainer"], restaurant.Name, restaurant.Tel)
 	if err != nil {
-		log.WithError(err).WithField("File", "menuItemListFlexContainer").Error("無法解析 JSON")
+		a.Logger.WithError(err).WithField("File", "menuItemListFlexContainer").Error("無法解析 JSON")
 		return nil, ErrSystemError
 	}
 
@@ -72,7 +67,7 @@ func handleNewOrder(args []string, ID string) (linebot.FlexContainer, error) {
 	for _, menuItem := range menuItems {
 		newMenuItemBox, err := generateBoxComponent(templates["menuItemListBoxComponent"], menuItem.Name, menuItem.Price, menuItem.Name, menuItem.Name)
 		if err != nil {
-			log.WithError(err).WithField("File", "menuItemListBoxComponent").Error("無法解析 JSON")
+			a.Logger.WithError(err).WithField("File", "menuItemListBoxComponent").Error("無法解析 JSON")
 			return nil, ErrSystemError
 		}
 
@@ -81,7 +76,7 @@ func handleNewOrder(args []string, ID string) (linebot.FlexContainer, error) {
 	return menuItemListFlexContainer, nil
 }
 
-func handleNewOrderItem(args []string, ID string) (string, error) {
+func (a *AppHandler) handleNewOrderItem(args []string, ID string) (string, error) {
 	var replyString string
 
 	// Error handling
@@ -90,25 +85,25 @@ func handleNewOrderItem(args []string, ID string) (string, error) {
 	}
 
 	// get username and display first part of response
-	username := getDisplayNameFromID(ID)
+	username := a.getDisplayNameFromID(ID)
 	replyString = fmt.Sprintf("%s 點餐:\n", username)
 
 	// Count number of orders
-	if count, err := models.CountActiveOrderOfOwnerID(db, ID); err != nil {
-		log.WithError(err).WithField("User", getDisplayNameFromID(ID)).Error("無法計算訂單數量")
+	if count, err := a.OrderRepo.CountActiveOrderOfOwnerID(ID); err != nil {
+		a.Logger.WithError(err).WithField("User", a.getDisplayNameFromID(ID)).Error("無法計算訂單數量")
 		return "", ErrSystemError
 	} else if count != 1 {
 		if count < 1 {
 			return "", ErrNoOrderInProgress
 		} else {
 			// count > 1
-			log.WithField("User", getDisplayNameFromID(ID)).Errorf("使用者目前有 %d 筆訂單", count)
+			a.Logger.WithField("User", a.getDisplayNameFromID(ID)).Errorf("使用者目前有 %d 筆訂單", count)
 			return "", ErrSystemError
 		}
 	}
 
 	// Get active order
-	order, err := getActiveOrderOfIDWithErrorHandling(ID)
+	order, err := a.getActiveOrderOfIDWithErrorHandling(ID)
 	if err != nil {
 		return "", err
 	}
@@ -118,16 +113,16 @@ func handleNewOrderItem(args []string, ID string) (string, error) {
 	for _, itemName := range args {
 		if itemName == "" {
 			continue
-		} else if menuItem, err := models.GetMenuItemByNameAndRestaurantName(db, itemName, order.Restaurant.Name); err != nil {
+		} else if menuItem, err := a.MenuItemRepo.GetMenuItemByNameAndRestaurantName(itemName, order.Restaurant.Name); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return "", ErrMenuItemNotFound
 			}
-			log.WithField("User", getDisplayNameFromID(ID)).Errorf("無法取得 %s 餐點資訊", itemName)
+			a.Logger.WithField("User", a.getDisplayNameFromID(ID)).Errorf("無法取得 %s 餐點資訊", itemName)
 			return "", ErrSystemError
 		} else {
 			newOrderDetail := &models.OrderDetail{}
 			newOrderDetail.Owner, newOrderDetail.Order, newOrderDetail.MenuItem = ID, order, menuItem
-			newOrderDetail.CreateOrderDetail(db)
+			a.OrderDetailRepo.CreateOrderDetail(newOrderDetail)
 			replyString += fmt.Sprintf("%s 點餐成功\n", itemName)
 		}
 	}
@@ -135,7 +130,7 @@ func handleNewOrderItem(args []string, ID string) (string, error) {
 	return replyString, nil
 }
 
-func handleNewRestaurant(args []string) (string, error) {
+func (a *AppHandler) handleNewRestaurant(args []string) (string, error) {
 	// Error handling: check if there are any arguments
 	if len(args) == 0 {
 		return "", ErrInputError
@@ -153,7 +148,7 @@ func handleNewRestaurant(args []string) (string, error) {
 		name, tel := itemArgs[0], itemArgs[1]
 		newRestaurant := &models.Restaurant{Name: name, Tel: tel}
 		// Create the new restaurant in the database
-		err := newRestaurant.CreateRestaurant(db)
+		err := a.RestaurantRepo.CreateRestaurant(newRestaurant)
 		if err != nil {
 			return "", ErrNewRestaurantError
 		}
@@ -174,19 +169,19 @@ func handleNewRestaurant(args []string) (string, error) {
 	return sb.String(), nil
 }
 
-func handleNewMenuItem(args []string) (string, error) {
+func (a *AppHandler) handleNewMenuItem(args []string) (string, error) {
 	if len(args) < 2 {
 		return "", ErrInputError
 	}
 
 	// Get restaurant
 	restaurantName, items := args[0], args[1:]
-	restaurant, err := models.GetRestaurantByName(db, restaurantName)
+	restaurant, err := a.RestaurantRepo.GetRestaurantByName(restaurantName)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return "", ErrRestaurantNotFound
 		}
-		log.WithError(err).Errorf("無法取得 %s 餐廳資訊", restaurantName)
+		a.Logger.WithError(err).Errorf("無法取得 %s 餐廳資訊", restaurantName)
 		return "", ErrSystemError
 	}
 
@@ -209,7 +204,7 @@ func handleNewMenuItem(args []string) (string, error) {
 		}
 
 		newMenuItem := &models.MenuItem{Name: name, Price: price, Restaurant: restaurant}
-		if err := newMenuItem.CreateMenuItem(db); err != nil {
+		if err := a.MenuItemRepo.CreateMenuItem(newMenuItem); err != nil {
 			return "", ErrNewMenuItemError
 		}
 
@@ -219,26 +214,26 @@ func handleNewMenuItem(args []string) (string, error) {
 	return sb.String(), nil
 }
 
-func handleGetAllRestaurants(args []string) (linebot.FlexContainer, error) {
+func (a *AppHandler) handleGetAllRestaurants(args []string) (linebot.FlexContainer, error) {
 	// Error handling
 	if len(args) > 1 || args[0] != "" {
 		return nil, ErrInputError
 	}
 
 	// Get restaurant list
-	restaurants, err := models.GetAllRestaurants(db)
+	restaurants, err := a.RestaurantRepo.GetAllRestaurants()
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		}
-		log.WithError(err).Error("無法取得餐廳列表")
+		a.Logger.WithError(err).Error("無法取得餐廳列表")
 		return nil, ErrSystemError
 	}
 
 	// Get and parse restaurantListFlexContainer.json
 	restaurantListFlexContainer, err := generateFlexContainer(templates["restaurantListFlexContainer"])
 	if err != nil {
-		log.WithError(err).Error("無法解析 restaurantListFlexContainer")
+		a.Logger.WithError(err).Error("無法解析 restaurantListFlexContainer")
 		return nil, ErrSystemError
 	}
 
@@ -246,7 +241,7 @@ func handleGetAllRestaurants(args []string) (linebot.FlexContainer, error) {
 	for _, restaurant := range restaurants {
 		restaurantListBoxComponent, err := generateBoxComponent(templates["restaurantListBoxComponent"], restaurant.Name, restaurant.Tel, restaurant.Name, restaurant.Name)
 		if err != nil {
-			log.WithError(err).Error("無法解析 restaurantListBoxComponent")
+			a.Logger.WithError(err).Error("無法解析 restaurantListBoxComponent")
 			return nil, ErrSystemError
 		}
 
@@ -256,13 +251,13 @@ func handleGetAllRestaurants(args []string) (linebot.FlexContainer, error) {
 	return restaurantListFlexContainer, nil
 }
 
-func getActiveOrderOfIDWithErrorHandling(ID string) (*models.Order, error) {
+func (a *AppHandler) getActiveOrderOfIDWithErrorHandling(ID string) (*models.Order, error) {
 	// Get active order
 	var orders []models.Order
 	var err error
-	username := getDisplayNameFromID(ID)
-	if orders, err = models.GetActiveOrdersOfID(db, ID); err != nil {
-		log.WithError(err).Errorf("無法取得 %s 的訂單資訊", username)
+	username := a.getDisplayNameFromID(ID)
+	if orders, err = a.OrderRepo.GetActiveOrdersOfID(ID); err != nil {
+		a.Logger.WithError(err).Errorf("無法取得 %s 的訂單資訊", username)
 		return nil, ErrSystemError
 	}
 
@@ -272,19 +267,19 @@ func getActiveOrderOfIDWithErrorHandling(ID string) (*models.Order, error) {
 		return nil, nil
 	} else {
 		// count > 1
-		log.WithField("User", username).Errorf("使用者目前有 %d 筆訂單", count)
+		a.Logger.WithField("User", username).Errorf("使用者目前有 %d 筆訂單", count)
 		return nil, ErrSystemError
 	}
 }
 
-func handleClearOrder(args []string, ID string) (string, error) {
+func (a *AppHandler) handleClearOrder(args []string, ID string) (string, error) {
 	// Error handling
 	if len(args) > 1 || args[0] != "" {
 		return "", ErrInputError
 	}
 
 	// Get active order
-	order, err := getActiveOrderOfIDWithErrorHandling(ID)
+	order, err := a.getActiveOrderOfIDWithErrorHandling(ID)
 	if err != nil {
 		return "", err
 	}
@@ -293,14 +288,14 @@ func handleClearOrder(args []string, ID string) (string, error) {
 	}
 
 	// Delete orderDetails and order
-	err = models.DeleteOrderDetailsOfOrderID(db, order.ID)
+	err = a.OrderDetailRepo.DeleteOrderDetailsOfOrderID(order.ID)
 	if err != nil {
-		log.WithError(err).Errorf("無法刪除 ID %d 的訂單細項", order.ID)
+		a.Logger.WithError(err).Errorf("無法刪除 ID %d 的訂單細項", order.ID)
 		return "", ErrSystemError
 	}
-	err = models.DeleteOrderOfID(db, order.ID)
+	err = a.OrderRepo.DeleteOrderOfID(order.ID)
 	if err != nil {
-		log.WithError(err).Errorf("無法刪除 ID %d 的訂單", order.ID)
+		a.Logger.WithError(err).Errorf("無法刪除 ID %d 的訂單", order.ID)
 		return "", ErrSystemError
 	}
 
@@ -308,14 +303,14 @@ func handleClearOrder(args []string, ID string) (string, error) {
 }
 
 // This function handles the statistic of an active order for a given ID.
-func handleStatistic(args []string, ID string) (string, error) {
+func (a *AppHandler) handleStatistic(args []string, ID string) (string, error) {
 	// Check if input is valid
 	if len(args) > 1 || args[0] != "" {
 		return "", ErrInputError
 	}
 
 	// Get active order
-	order, err := getActiveOrderOfIDWithErrorHandling(ID)
+	order, err := a.getActiveOrderOfIDWithErrorHandling(ID)
 	if err != nil {
 		return "", err
 	}
@@ -324,9 +319,9 @@ func handleStatistic(args []string, ID string) (string, error) {
 	}
 
 	// Get order details
-	orderDetails, err := models.GetActiveOrderDetailsOfID(db, order.ID)
+	orderDetails, err := a.OrderDetailRepo.GetActiveOrderDetailsOfID(order.ID)
 	if err != nil {
-		log.WithError(err).Errorf("無法取得 ID %d 的訂單細項", order.ID)
+		a.Logger.WithError(err).Errorf("無法取得 ID %d 的訂單細項", order.ID)
 		return "", ErrSystemError
 	}
 
@@ -337,15 +332,17 @@ func handleStatistic(args []string, ID string) (string, error) {
 	var userReport strings.Builder
 	fmt.Fprintf(&userReport, "%s<br>", order.Restaurant.Name)
 	for _, od := range orderDetails {
-		userName := getDisplayNameFromID(od.Owner)
+		userName := a.getDisplayNameFromID(od.Owner)
 		fmt.Fprintf(&userReport, "%s / %s / %d<br>", userName, od.MenuItem.Name, od.MenuItem.Price)
 	}
 
 	// Save userReport to a static HTML file
 	userReportPath := "./static/userReport.html"
 	if err := writeReportToFile(userReportPath, userReport.String()); err != nil {
+		a.Logger.Printf("Could not write report to HTML file: %v", err)
 		return "", err
 	}
+	userReportURL := "https://" + a.Env["SITE_URL"] + ":" + a.Env["PORT"] + "/userReport"
 
 	// Generate restaurantReport
 	var restaurantReport strings.Builder
@@ -367,14 +364,31 @@ func handleStatistic(args []string, ID string) (string, error) {
 
 	fmt.Fprintf(&restaurantReport, "總計: 共 %d 份 / 共 %d 元\n", totalItemCount, totalPrice)
 
-	// return restaurantReport
-	return SITE_URL + "/userReport\n\n" + restaurantReport.String(), nil
+	return userReportURL + "\n\n" + restaurantReport.String(), nil
+}
+
+func (a *AppHandler) handleGetAllOrders(args []string, ID string) (string, error) {
+	var replyString string
+	if len(args) == 1 && args[0] == "" {
+		replyString = "訂單列表:\n"
+		orders, err := a.OrderRepo.GetActiveOrders()
+		if err != nil {
+			a.Logger.WithError(err).Error("無法取得所有訂單")
+			return "", ErrSystemError
+		}
+		for _, order := range orders {
+			username := a.getDisplayNameFromID(ID)
+			replyString += fmt.Sprintf("%s: %s\n", username, order.Restaurant.Name)
+		}
+		return replyString, nil
+	} else {
+		return "", ErrInputError
+	}
 }
 
 // writeReportToFile writes the provided content to a file at the specified path
 func writeReportToFile(path string, content string) error {
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		log.Printf("Could not write report to HTML file: %v", err)
 		return err
 	}
 	return nil
@@ -387,23 +401,4 @@ func calculateTotals(orderDetails []*models.OrderDetail) map[string][]*models.Or
 		totals[od.MenuItem.Name] = append(totals[od.MenuItem.Name], od)
 	}
 	return totals
-}
-
-func handleGetAllOrders(args []string, ID string) (string, error) {
-	var replyString string
-	if len(args) == 1 && args[0] == "" {
-		replyString = "訂單列表:\n"
-		orders, err := models.GetActiveOrders(db)
-		if err != nil {
-			log.WithError(err).Error("無法取得所有訂單")
-			return "", ErrSystemError
-		}
-		for _, order := range orders {
-			username := getDisplayNameFromID(ID)
-			replyString += fmt.Sprintf("%s: %s\n", username, order.Restaurant.Name)
-		}
-		return replyString, nil
-	} else {
-		return "", ErrInputError
-	}
 }

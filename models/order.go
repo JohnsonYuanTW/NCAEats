@@ -1,7 +1,7 @@
 package models
 
 import (
-	"log"
+	"fmt"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -15,36 +15,40 @@ type Order struct {
 	OrderDetails []OrderDetail
 }
 
-func initOrder(db *gorm.DB) (err error) {
-	if err = db.AutoMigrate(&Order{}); err != nil {
-		log.Fatalf("Error initializing Order: %v", err)
+type OrderRepository struct {
+	*BaseRepository
+}
+
+func (r *OrderRepository) Init() (err error) {
+	if err := r.DB.AutoMigrate(&Order{}); err != nil {
+		return fmt.Errorf("error initializing Order: %v", err)
 	}
-	return
+	return nil
 }
 
-func (o *Order) CreateOrder(db *gorm.DB) error {
-	return db.Create(&o).Error
+func (r *OrderRepository) CreateOrder(o *Order) error {
+	return r.DB.Create(o).Error
 }
 
-func GetActiveOrders(db *gorm.DB) ([]Order, error) {
+func (r *OrderRepository) GetActiveOrders() ([]Order, error) {
 	var orders []Order
-	result := db.Model(&Order{}).Preload(clause.Associations).Find(&orders)
+	result := r.DB.Model(&Order{}).Preload(clause.Associations).Find(&orders)
 	return orders, result.Error
 }
 
-func GetActiveOrdersOfID(db *gorm.DB, id string) ([]Order, error) {
+func (r *OrderRepository) GetActiveOrdersOfID(id string) ([]Order, error) {
 	var orders []Order
-	result := db.Model(&Order{}).Preload("Restaurant").Where("owner=?", id).Find(&orders)
+	result := r.DB.Model(&Order{}).Preload("Restaurant").Where("owner=?", id).Find(&orders)
 	return orders, result.Error
 }
 
-func CountActiveOrderOfOwnerID(db *gorm.DB, id string) (int64, error) {
+func (r *OrderRepository) CountActiveOrderOfOwnerID(id string) (int64, error) {
 	var count int64
-	result := db.Model(&Order{}).Where("owner=?", id).Count(&count)
+	result := r.DB.Model(&Order{}).Where("owner=?", id).Count(&count)
 	return count, result.Error
 }
 
-func DeleteOrderOfID(db *gorm.DB, id uint) error {
-	result := db.Model(&Order{}).Where("id=?", id).Delete(&Order{})
+func (r *OrderRepository) DeleteOrderOfID(id uint) error {
+	result := r.DB.Model(&Order{}).Where("id=?", id).Delete(&Order{})
 	return result.Error
 }

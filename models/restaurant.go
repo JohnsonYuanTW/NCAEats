@@ -1,7 +1,7 @@
 package models
 
 import (
-	"log"
+	"fmt"
 
 	"gorm.io/gorm"
 )
@@ -14,35 +14,39 @@ type Restaurant struct {
 	Orders    []Order
 }
 
-func initRestaurant(db *gorm.DB) (err error) {
-	if err = db.AutoMigrate(&Restaurant{}); err != nil {
-		log.Fatalf("Error initializing Restaurant: %v", err)
+type RestaurantRepository struct {
+	*BaseRepository
+}
+
+func (r *RestaurantRepository) Init() error {
+	if err := r.DB.AutoMigrate(&Restaurant{}); err != nil {
+		return fmt.Errorf("error initializing Restaurant: %v", err)
 	}
-	return
+	return nil
 }
 
-func (r *Restaurant) CreateRestaurant(db *gorm.DB) error {
-	return db.Create(&r).Error
+func (r *RestaurantRepository) CreateRestaurant(rest *Restaurant) error {
+	return r.DB.Create(rest).Error
 }
 
-func GetAllRestaurants(db *gorm.DB) ([]*Restaurant, error) {
+func (r *RestaurantRepository) GetAllRestaurants() ([]*Restaurant, error) {
 	var restaurants []*Restaurant
-	if err := db.Find(&restaurants).Error; err != nil {
+	if err := r.DB.Find(&restaurants).Error; err != nil {
 		return nil, err
 	}
 	return restaurants, nil
 }
 
-func GetRestaurantByName(db *gorm.DB, name string) (*Restaurant, error) {
+func (r *RestaurantRepository) GetRestaurantByName(name string) (*Restaurant, error) {
 	var restaurant Restaurant
-	if err := db.Model(&Restaurant{}).Where("name=?", name).First(&restaurant).Error; err != nil {
+	if err := r.DB.Model(&Restaurant{}).Where("name=?", name).First(&restaurant).Error; err != nil {
 		return nil, err
 	}
 	return &restaurant, nil
 }
 
-func DeleteRestaurant(db *gorm.DB, ID int64) error {
+func (r *RestaurantRepository) DeleteRestaurant(ID int64) error {
 	var restaurant Restaurant
-	result := db.Model(&Restaurant{}).Where("ID=?", ID).Delete(&restaurant)
+	result := r.DB.Model(&Restaurant{}).Where("ID=?", ID).Delete(&restaurant)
 	return result.Error
 }
