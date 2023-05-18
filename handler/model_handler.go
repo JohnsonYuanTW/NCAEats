@@ -3,7 +3,6 @@ package handler
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -336,13 +335,18 @@ func (a *AppHandler) handleStatistic(args []string, ID string) (string, error) {
 		fmt.Fprintf(&userReport, "%s / %s / %d<br>", userName, od.MenuItem.Name, od.MenuItem.Price)
 	}
 
-	// Save userReport to a static HTML file
-	userReportPath := "./static/userReport.html"
-	if err := writeReportToFile(userReportPath, userReport.String()); err != nil {
-		a.Logger.Printf("Could not write report to HTML file: %v", err)
-		return "", err
+	// Save userReport
+	if err := a.OrderRepo.SaveOrderReport(order.ID, userReport.String()); err != nil {
+		a.Logger.Printf("Could not save report to Database: %v", err)
+		return "", ErrSystemError
 	}
-	userReportURL := "https://" + a.Env["SITE_URL"] + ":" + a.Env["PORT"] + "/userReport"
+	// Get userReport ID
+	userReportID := ""
+	if userReportID, err = a.OrderRepo.GetOrderReportIDByOrderID(order.ID); err != nil {
+		a.Logger.Printf("Could not get report from Database: %v", err)
+		return "", ErrSystemError
+	}
+	userReportURL := "https://" + a.Env["SITE_URL"] + ":" + a.Env["PORT"] + "/userReport/" + userReportID
 
 	// Generate restaurantReport
 	var restaurantReport strings.Builder
@@ -384,14 +388,6 @@ func (a *AppHandler) handleGetAllOrders(args []string, ID string) (string, error
 	} else {
 		return "", ErrInputError
 	}
-}
-
-// writeReportToFile writes the provided content to a file at the specified path
-func writeReportToFile(path string, content string) error {
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		return err
-	}
-	return nil
 }
 
 // This function calculates the totals for each item in the order.
