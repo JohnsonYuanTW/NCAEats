@@ -79,7 +79,7 @@ func (r *OrderRepository) generateUniqueReportID() string {
 	}
 }
 
-func (r *OrderRepository) GetOrderReportByOrderID(orderID uint, report string) (string, error) {
+func (r *OrderRepository) GetOrderReportByOrderID(orderID uint) (string, error) {
 	order := &Order{}
 	if err := r.DB.First(&order, "id = ?", orderID).Error; err != nil {
 		return "", err
@@ -93,6 +93,14 @@ func (r *OrderRepository) GetOrderReportIDByOrderID(orderID uint) (string, error
 		return "", err
 	}
 	return order.ReportID, nil
+}
+
+func (r *OrderRepository) GetOrderIDByReportID(reportID string) (uint, error) {
+	order := &Order{}
+	if err := r.DB.First(&order, "report_id = ?", reportID).Error; err != nil {
+		return 0, err
+	}
+	return order.ID, nil
 }
 
 func (r *OrderRepository) DeleteOrderByOrderID(orderID uint) error {

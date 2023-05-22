@@ -24,11 +24,37 @@ Go Lunch Order Linebot is a tool designed to simplify the process of organizing 
     - [ ] Utilize `logrus` for logging
     - [ ] Implement Flex Response
         - [ ] Introduce Flex Response in all functionalities
-        - [ ] Enhance the approach for loading JSON
+        - [x] Enhance the approach for loading JSON using DI
+    - [x] Enhance the project with DI
 - [ ] Testing
     - [ ] Conduct unit tests
     - [ ] Perform integrated tests
 
+## Configuration
+
+The application requires certain env variables to be set for proper operation. These variables can be set in a `.env` file in the root of your project. 
+
+Here is a list of required environment variables:
+
+- `ChannelSecret`: Your Linebot channel secret.
+- `ChannelAccessToken`: Your Linebot channel access token.
+- `SSLCertfilePath`: Path to your SSL certificate file.
+- `SSLKeyPath`: Path to your SSL key file.
+- `SITE_URL`: URL of your site.
+- `PORT`: Port for your application to run on.
+- `DB_USERNAME`: Username for your PostgreSQL database.
+- `DB_PASSWORD`: Password for your PostgreSQL database.
+- `DB_URL`: URL for your PostgreSQL database.
+- `DB_NAME`: Name of your PostgreSQL database.
+- `DB_PORT`: Port number for your PostgreSQL database.
+- `DB_MAX_IDLE_CONNS`: Maximum number of idle connections in the PostgreSQL connection pool.
+- `DB_MAX_OPEN_CONNS`: Maximum number of open connections to the PostgreSQL database.
+- `DB_CONN_MAX_LIFETIME`: Maximum lifetime of a connection to the PostgreSQL database.
+
+You can copy the `.env.example` file to a new file named `.env` and fill in the appropriate values. 
+
+```bash
+cp .env.example .env
 
 ## How to Use
 WIP

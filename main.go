@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -16,8 +18,15 @@ import (
 )
 
 func initDBConn(env map[string]string) (*gorm.DB, error) {
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Taipei",
-		env["DB_URL"], env["DB_USERNAME"], env["DB_PASSWORD"], env["DB_NAME"], env["DB_PORT"])
+	u := &url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(url.QueryEscape(env["DB_USERNAME"]), url.QueryEscape(env["DB_PASSWORD"])),
+		Host:     fmt.Sprintf("%s:%s", env["DB_URL"], env["DB_PORT"]),
+		Path:     url.QueryEscape(env["DB_NAME"]),
+		RawQuery: (&url.Values{"sslmode": []string{"disable"}, "TimeZone": []string{"Asia/Taipei"}}).Encode(),
+	}
+
+	dsn := u.String()
 
 	// Open DB connection
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
@@ -94,8 +103,26 @@ func main() {
 
 	// Set up routes
 	http.HandleFunc("/callback", appHandler.CallbackHandler)
-	http.HandleFunc("/userReport", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./static/userReport.html")
+	http.HandleFunc("/userReport/", func(w http.ResponseWriter, r *http.Request) {
+		// Get the report ID from the URL
+		reportID := strings.TrimPrefix(r.URL.Path, "/userReport/")
+
+		// Look up the orderID of ReportID in the db
+		orderID, err := appHandler.OrderRepo.GetOrderIDByReportID(reportID)
+		if err != nil {
+			http.Error(w, "Report not found", http.StatusNotFound)
+			log.WithError(err).Errorf("無法取得 %s 報表對應的訂單", reportID)
+		}
+
+		// Get reportHTML
+		reportHTML, err := appHandler.OrderRepo.GetOrderReportByOrderID(orderID)
+		if err != nil {
+			http.Error(w, "Report not found", http.StatusNotFound)
+			log.WithError(err).Errorf("無法取得 %s 報表", reportID)
+		}
+
+		// Write to HTML
+		fmt.Fprint(w, reportHTML)
 	})
 
 	// Start server

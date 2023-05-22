@@ -20,7 +20,6 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/sirupsen/logrus v1.9.0
-	golang.org/x/exp v0.0.0-20230321023759-10a507213a29 // indirect
 	gorm.io/driver/postgres v1.5.0
-	gorm.io/gorm v1.24.7-0.20230306060331-85eaf9eeda11 // indirect
+	gorm.io/gorm v1.24.7-0.20230306060331-85eaf9eeda11
 )
