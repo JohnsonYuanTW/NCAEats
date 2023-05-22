@@ -346,7 +346,7 @@ func (a *AppHandler) handleStatistic(args []string, ID string) (string, error) {
 		a.Logger.Printf("Could not get report from Database: %v", err)
 		return "", ErrSystemError
 	}
-	userReportURL := "https://" + a.Env["SITE_URL"] + ":" + a.Env["PORT"] + "/userReport/" + userReportID
+	userReportURL := "https://" + a.Config.SiteURL + ":" + a.Config.Port + "/userReport/" + userReportID
 
 	// Generate restaurantReport
 	var restaurantReport strings.Builder

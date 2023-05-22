@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/postgres"
@@ -17,12 +15,12 @@ import (
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
-func initDBConn(env map[string]string) (*gorm.DB, error) {
+func initDBConn(config *config.Config) (*gorm.DB, error) {
 	u := &url.URL{
 		Scheme:   "postgres",
-		User:     url.UserPassword(url.QueryEscape(env["DB_USERNAME"]), url.QueryEscape(env["DB_PASSWORD"])),
-		Host:     fmt.Sprintf("%s:%s", env["DB_URL"], env["DB_PORT"]),
-		Path:     url.QueryEscape(env["DB_NAME"]),
+		User:     url.UserPassword(config.DBUsername, config.DBPassword),
+		Host:     fmt.Sprintf("%s:%s", config.DBURL, config.DBPort),
+		Path:     config.DBName,
 		RawQuery: (&url.Values{"sslmode": []string{"disable"}, "TimeZone": []string{"Asia/Taipei"}}).Encode(),
 	}
 
@@ -39,23 +37,9 @@ func initDBConn(env map[string]string) (*gorm.DB, error) {
 	}
 
 	// Set connection pool parameters
-	maxIdleConns, err := strconv.Atoi(env["DB_MAX_IDLE_CONNS"])
-	if err != nil {
-		return nil, fmt.Errorf("invalid value for max idle connections: %v", err)
-	}
-	sqlDB.SetMaxIdleConns(maxIdleConns)
-
-	maxOpenConns, err := strconv.Atoi(env["DB_MAX_OPEN_CONNS"])
-	if err != nil {
-		return nil, fmt.Errorf("invalid value for max open connections: %v", err)
-	}
-	sqlDB.SetMaxOpenConns(maxOpenConns)
-
-	connMaxLifetime, err := time.ParseDuration(env["DB_CONN_MAX_LIFETIME"])
-	if err != nil {
-		return nil, fmt.Errorf("invalid value for max connection lifetime: %v", err)
-	}
-	sqlDB.SetConnMaxLifetime(connMaxLifetime)
+	sqlDB.SetMaxIdleConns(config.DBMaxIdleConns)
+	sqlDB.SetMaxOpenConns(config.DBMaxOpenConns)
+	sqlDB.SetConnMaxLifetime(config.DBConnMaxLifetime)
 
 	return db, nil
 }
@@ -72,28 +56,28 @@ func main() {
 	log.Info("JSON 模板初始化成功")
 
 	// Load environment variables
-	env, err := config.LoadEnvVariables()
+	s, err := config.LoadEnvVariables()
 	if err != nil {
 		log.WithError(err).Fatal("無法載入環境變數")
 	}
 	log.Info("環境變數載入成功")
 
 	// Initialize DB conn and models
-	db, err := initDBConn(env)
+	db, err := initDBConn(s)
 	if err != nil {
 		log.WithError(err).Fatal("資料庫連線失敗")
 	}
 	log.Info("資料庫連線成功")
 
 	// Create LineBot client
-	bot, err := linebot.New(env["ChannelSecret"], env["ChannelAccessToken"])
+	bot, err := linebot.New(s.ChannelSecret, s.ChannelAccessToken)
 	if err != nil {
 		log.WithError(err).Fatal("Linebot 建立失敗")
 	}
 	log.Info("Linebot 建立成功")
 
 	// Create appHandler
-	appHandler, err := handler.NewAppHandler(log, templates, env, bot, db)
+	appHandler, err := handler.NewAppHandler(log, templates, s, bot, db)
 	if err != nil {
 		log.WithError(err).Fatal("模型初始化失敗")
 	}
@@ -126,8 +110,8 @@ func main() {
 	})
 
 	// Start server
-	addr := fmt.Sprintf(":%s", env["PORT"])
-	if err := http.ListenAndServeTLS(addr, env["SSLCertfilePath"], env["SSLKeyPath"], nil); err != nil {
+	addr := fmt.Sprintf(":%s", s.Port)
+	if err := http.ListenAndServeTLS(addr, s.SSLCertfilePath, s.SSLKeyPath, nil); err != nil {
 		log.WithError(err).Fatal("無法啟動網頁伺服器")
 	}
 }

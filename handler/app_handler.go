@@ -3,6 +3,7 @@ package handler
 import (
 	"reflect"
 
+	"github.com/JohnsonYuanTW/NCAEats/config"
 	"github.com/JohnsonYuanTW/NCAEats/models"
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 	"github.com/sirupsen/logrus"
@@ -16,7 +17,7 @@ type DB struct {
 type AppHandler struct {
 	Logger          *logrus.Logger
 	Templates       *TemplateHandler
-	Env             map[string]string
+	Config          *config.Config
 	Bot             *linebot.Client
 	MenuItemRepo    *models.MenuItemRepository
 	OrderRepo       *models.OrderRepository
@@ -24,7 +25,7 @@ type AppHandler struct {
 	RestaurantRepo  *models.RestaurantRepository
 }
 
-func NewAppHandler(log *logrus.Logger, templates *TemplateHandler, env map[string]string, bot *linebot.Client, db *gorm.DB) (*AppHandler, error) {
+func NewAppHandler(log *logrus.Logger, templates *TemplateHandler, config *config.Config, bot *linebot.Client, db *gorm.DB) (*AppHandler, error) {
 	// AppHandler Creation
 	baseRepo := &models.BaseRepository{
 		DB: db,
@@ -32,7 +33,7 @@ func NewAppHandler(log *logrus.Logger, templates *TemplateHandler, env map[strin
 	appHandler := &AppHandler{
 		Logger:    log,
 		Templates: templates,
-		Env:       env,
+		Config:    config,
 		Bot:       bot,
 		MenuItemRepo: &models.MenuItemRepository{
 			BaseRepository: baseRepo,

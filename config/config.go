@@ -1,23 +1,32 @@
 package config
 
 import (
-	"fmt"
+	"time"
 
-	"github.com/joho/godotenv"
+	"github.com/kelseyhightower/envconfig"
 )
 
-// LoadEnvVariables reads environment variables from the specified files and returns them as a map.
-// It takes one or more filenames as input parameters and returns a map of key-value pairs representing the environment variables.
-// If an error occurs while reading the files, it returns nil and the error message.
-func LoadEnvVariables(filenames ...string) (map[string]string, error) {
-	// Read the environment variables from the specified files using the godotenv package.
-	env, err := godotenv.Read(filenames...)
+type Config struct {
+	ChannelSecret      string        `envconfig:"CHANNEL_SECRET"`
+	ChannelAccessToken string        `envconfig:"CHANNEL_ACCESS_TOKEN"`
+	SSLCertfilePath    string        `envconfig:"SSL_CERTIFICATE_FILE"`
+	SSLKeyPath         string        `envconfig:"SSL_KEY_PATH"`
+	SiteURL            string        `envconfig:"SITE_URL"`
+	Port               string        `envconfig:"PORT"`
+	DBUsername         string        `envconfig:"DB_USERNAME"`
+	DBPassword         string        `envconfig:"DB_PASSWORD"`
+	DBURL              string        `envconfig:"DB_URL"`
+	DBName             string        `envconfig:"DB_NAME"`
+	DBPort             string        `envconfig:"DB_PORT"`
+	DBMaxIdleConns     int           `envconfig:"DB_MAX_IDLE_CONNS"`
+	DBMaxOpenConns     int           `envconfig:"DB_MAX_OPEN_CONNS"`
+	DBConnMaxLifetime  time.Duration `envconfig:"DB_CONN_MAX_LIFETIME"`
+}
 
-	// If an error occurred while reading the files, return nil and the error message.
-	if err != nil {
-		return nil, fmt.Errorf("failed to read environment variables: %v", err)
+func LoadEnvVariables() (*Config, error) {
+	s := &Config{}
+	if err := envconfig.Process("", s); err != nil {
+		return nil, err
 	}
-
-	// Otherwise, return the map of environment variables.
-	return env, nil
+	return s, nil
 }
