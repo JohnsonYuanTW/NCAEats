@@ -2,9 +2,9 @@ package handler
 
 import (
 	"errors"
-	"net/http"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 	"gorm.io/gorm"
 )
@@ -20,15 +20,16 @@ var (
 	ErrNewMenuItemError   = errors.New("無法新增餐點")
 )
 
-func (a *AppHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
+func (a *AppHandler) CallbackHandler(c *gin.Context) {
 	var err error
-	events, err := a.Bot.ParseRequest(r)
+	events, err := a.Bot.ParseRequest(c.Request)
 	if err != nil {
 		if err == linebot.ErrInvalidSignature {
-			w.WriteHeader(400)
+			a.Logger.WithError(err).Error("Bot 有誤，簽名不正確")
+			c.Data(400, "text/plain", []byte("Invalid Signature"))
 		} else {
 			a.Logger.WithError(err).Error("Bot 有誤，無法解析請求")
-			w.WriteHeader(500)
+			c.Data(500, "text/plain", []byte("Cannot parse request"))
 		}
 		return
 	}

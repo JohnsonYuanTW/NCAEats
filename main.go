@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -86,32 +86,33 @@ func main() {
 	log.Info("程式已啟動...")
 
 	// Set up routes
-	http.HandleFunc("/callback", appHandler.CallbackHandler)
-	http.HandleFunc("/userReport/", func(w http.ResponseWriter, r *http.Request) {
-		// Get the report ID from the URL
-		reportID := strings.TrimPrefix(r.URL.Path, "/userReport/")
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.Default()
+	r.POST("/callback", appHandler.CallbackHandler)
+	r.GET("/userReport/:reportID", func(c *gin.Context) {
+		reportID := c.Params.ByName("reportID")
 
 		// Look up the orderID of ReportID in the db
 		orderID, err := appHandler.OrderRepo.GetOrderIDByReportID(reportID)
 		if err != nil {
-			http.Error(w, "Report not found", http.StatusNotFound)
+			c.String(http.StatusNotFound, "Report not found")
 			log.WithError(err).Errorf("無法取得 %s 報表對應的訂單", reportID)
+			return
 		}
 
 		// Get reportHTML
 		reportHTML, err := appHandler.OrderRepo.GetOrderReportByOrderID(orderID)
 		if err != nil {
-			http.Error(w, "Report not found", http.StatusNotFound)
+			c.String(http.StatusNotFound, "Report not found")
 			log.WithError(err).Errorf("無法取得 %s 報表", reportID)
+			return
 		}
-
-		// Write to HTML
-		fmt.Fprint(w, reportHTML)
+		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(reportHTML))
 	})
 
 	// Start server
 	addr := fmt.Sprintf(":%s", s.Port)
-	if err := http.ListenAndServeTLS(addr, s.SSLCertfilePath, s.SSLKeyPath, nil); err != nil {
+	if err := r.RunTLS(addr, s.SSLCertfilePath, s.SSLKeyPath); err != nil {
 		log.WithError(err).Fatal("無法啟動網頁伺服器")
 	}
 }
