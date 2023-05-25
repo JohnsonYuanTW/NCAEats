@@ -1,5 +1,5 @@
-# Go Lunch Order Linebot
-Go Lunch Order Linebot is a tool designed to simplify the process of organizing group lunch orders. It allows admins to create, read, update, and delete (CRUD) restaurants and menu items. Admins can start new orders, and other users can add their desired menu items to the order. Once the order is collected, the system generates two detailed reports: one for the restaurant detailing the total count of each item and the total price, and another for the orderer detailing each person's order for easy money collection
+# NCAEats - Go Lunch Order Linebot
+NCAEats is a tool designed to simplify the process of organizing group lunch orders. It allows admins to create, read, update, and delete (CRUD) restaurants and menu items. Admins can start new orders, and other users can add their desired menu items to the order. Once the order is collected, the system generates two detailed reports: one for the restaurant detailing the total count of each item and the total price, and another for the orderer detailing each person's order for easy money collection
 
 ## Features
 * CRUD operations for restaurants and menu items
