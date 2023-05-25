@@ -26,6 +26,10 @@ Go Lunch Order Linebot is a tool designed to simplify the process of organizing 
         - [ ] Introduce Flex Response in all functionalities
         - [x] Enhance the approach for loading JSON using DI
     - [x] Enhance the project with DI
+- [ ] Docker Integration
+    - [ ] Create Dockerfile for building application image
+    - [ ] Set up Docker Compose for local development and testing
+    - [ ] (Optional) Configure a Docker registry for storing and distributing your application image
 - [ ] Testing
     - [ ] Conduct unit tests
     - [ ] Perform integrated tests
@@ -55,6 +59,7 @@ You can copy the `.env.example` file to a new file named `.env` and fill in the 
 
 ```bash
 cp .env.example .env
+```
 
 ## How to Use
 WIP
