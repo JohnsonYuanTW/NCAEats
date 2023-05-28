@@ -22,13 +22,13 @@ func (a *AppHandler) handleNewOrder(args []string, ID string) (linebot.FlexConta
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrRestaurantNotFound
 		}
-		a.Logger.WithError(err).Error("無法取得 %s 餐廳資訊", restaurantName)
+		a.Logger.WithError(err).Errorf("無法取得 %s 餐廳資訊", restaurantName)
 		return nil, ErrSystemError
 	}
 
 	menuItems, err := a.MenuItemRepo.GetMenuItemsByRestaurantName(restaurantName)
 	if err != nil {
-		a.Logger.WithError(err).Error("無法取得 %s 的餐點項目", restaurantName)
+		a.Logger.WithError(err).Errorf("無法取得 %s 的餐點項目", restaurantName)
 		return nil, ErrSystemError
 	}
 

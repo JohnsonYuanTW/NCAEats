@@ -16,13 +16,13 @@ type DB struct {
 
 type AppHandler struct {
 	Logger          *logrus.Logger
-	Templates       *TemplateHandler
+	Templates       TemplateHandlerInterface
 	Config          *config.Config
 	Bot             *linebot.Client
-	MenuItemRepo    *models.MenuItemRepository
-	OrderRepo       *models.OrderRepository
-	OrderDetailRepo *models.OrderDetailRepository
-	RestaurantRepo  *models.RestaurantRepository
+	MenuItemRepo    models.MenuItemRepositoryInterface
+	OrderRepo       models.OrderRepositoryInterface
+	OrderDetailRepo models.OrderDetailRepositoryInterface
+	RestaurantRepo  models.RestaurantRepositoryInterface
 }
 
 func NewAppHandler(log *logrus.Logger, templates *TemplateHandler, config *config.Config, bot *linebot.Client, db *gorm.DB) (*AppHandler, error) {

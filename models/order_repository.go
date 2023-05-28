@@ -21,6 +21,20 @@ type OrderRepository struct {
 	*BaseRepository
 }
 
+type OrderRepositoryInterface interface {
+	Init() error
+	CreateOrder(*Order) error
+	GetActiveOrders() ([]Order, error)
+	GetActiveOrdersOfOwnerID(string) ([]Order, error)
+	CountActiveOrdersOfOwnerID(string) (int64, error)
+	SaveOrderReport(uint, string) error
+	generateUniqueReportID() string
+	GetOrderReportByOrderID(uint) (string, error)
+	GetOrderReportIDByOrderID(uint) (string, error)
+	GetOrderIDByReportID(string) (uint, error)
+	DeleteOrderByOrderID(uint) error
+}
+
 func (r *OrderRepository) Init() (err error) {
 	if err := r.DB.AutoMigrate(&Order{}); err != nil {
 		return fmt.Errorf("failed to auto migrate Order: %w", err)

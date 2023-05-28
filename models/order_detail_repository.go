@@ -19,6 +19,13 @@ type OrderDetailRepository struct {
 	*BaseRepository
 }
 
+type OrderDetailRepositoryInterface interface {
+	Init() error
+	CreateOrderDetail(*OrderDetail) error
+	GetActiveOrderDetailsByOrderID(uint) ([]*OrderDetail, error)
+	DeleteOrderDetailsByOrderID(uint) error
+}
+
 func (r *OrderDetailRepository) Init() (err error) {
 	if err := r.DB.AutoMigrate(&OrderDetail{}); err != nil {
 		return fmt.Errorf("error initializing OrderDetail: %v", err)

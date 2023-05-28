@@ -14,6 +14,12 @@ type TemplateHandler struct {
 	templates map[string]string
 }
 
+type TemplateHandlerInterface interface {
+	GetTemplate(string) (string, error)
+	generateFlexContainer(string, ...interface{}) (linebot.FlexContainer, error)
+	generateBoxComponent(string, ...interface{}) (linebot.BoxComponent, error)
+}
+
 func NewTemplateHandler(dir string) (*TemplateHandler, error) {
 	templates := make(map[string]string)
 

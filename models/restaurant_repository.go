@@ -18,6 +18,14 @@ type RestaurantRepository struct {
 	*BaseRepository
 }
 
+type RestaurantRepositoryInterface interface {
+	Init() error
+	CreateRestaurant(*Restaurant) error
+	GetAllRestaurants() ([]*Restaurant, error)
+	GetRestaurantByName(string) (*Restaurant, error)
+	DeleteRestaurant(int64) error
+}
+
 func (r *RestaurantRepository) Init() error {
 	if err := r.DB.AutoMigrate(&Restaurant{}); err != nil {
 		return fmt.Errorf("error initializing Restaurant: %v", err)

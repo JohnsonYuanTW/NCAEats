@@ -20,6 +20,14 @@ type MenuItemRepository struct {
 	*BaseRepository
 }
 
+type MenuItemRepositoryInterface interface {
+	Init() error
+	CreateMenuItem(*MenuItem) error
+	GetAllMenuItems() ([]MenuItem, error)
+	GetMenuItemsByRestaurantName(string) ([]MenuItem, error)
+	GetMenuItemByDetails(string, string) (*MenuItem, error)
+}
+
 func (r *MenuItemRepository) Init() error {
 	if err := r.DB.AutoMigrate(&MenuItem{}); err != nil {
 		return fmt.Errorf("error initializing MenuItem: %v", err)
