@@ -1,0 +1,43 @@
+version: '3.7'
+
+services:
+  web:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT}:${PORT}"
+    volumes:
+      - ${SSL_CERTIFICATE_HOST_PATH}:${SSL_CERTIFICATE_PATH}
+      - ${SSL_KEY_HOST_PATH}:${SSL_KEY_PATH}
+    depends_on:
+      - db
+    environment:
+      CHANNEL_SECRET: ${CHANNEL_SECRET}
+      CHANNEL_ACCESS_TOKEN: ${CHANNEL_ACCESS_TOKEN}
+      SSL_CERTIFICATE_PATH: ${SSL_CERTIFICATE_PATH}
+      SSL_KEY_PATH: ${SSL_KEY_PATH}
+      SITE_URL: ${SITE_URL}
+      PORT: ${PORT}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_URL: ${DB_URL}
+      DB_NAME: ${DB_NAME}
+      DB_PORT: ${DB_PORT}
+      DB_MAX_IDLE_CONNS: ${DB_MAX_IDLE_CONNS}
+      DB_MAX_OPEN_CONNS: ${DB_MAX_OPEN_CONNS}
+      DB_CONN_MAX_LIFETIME: ${DB_CONN_MAX_LIFETIME}
+
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+
+volumes:
+  pg-data:
+  ssl-data:
+
