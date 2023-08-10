@@ -27,7 +27,7 @@ NCAEats is a tool designed to simplify the process of organizing group lunch ord
         - [x] Enhance the approach for loading JSON using DI
     - [x] Enhance the project with DI
 - [ ] Docker Integration
-    - [ ] Create Dockerfile for building application image
+    - [x] Create Dockerfile for building application image
     - [ ] Set up Docker Compose for local development and testing
     - [ ] (Optional) Configure a Docker registry for storing and distributing your application image
 - [ ] Testing
@@ -35,25 +35,33 @@ NCAEats is a tool designed to simplify the process of organizing group lunch ord
     - [ ] Perform integrated tests
 
 ## Configuration
+This document outlines the environment variables used in [Your Project Name]. Make sure to set these variables appropriately in your environment or within your `.env` file.
 
-The application requires certain env variables to be set for proper operation. These variables can be set in a `.env` file in the root of your project. 
+### LINE Messaging API Configuration
+- **CHANNEL_SECRET**: Your LINE Channel Secret. Obtain it from the LINE Developer Console.
+- **CHANNEL_ACCESS_TOKEN**: Your LINE Channel Access Token. This is also obtained from the LINE Developer Console.
 
-Here is a list of required environment variables:
+### SSL Configuration
+Line requires webhook to operate under SSL, so you'll need to configure these paths.
+- **SSL_CERTIFICATE_HOST_PATH**: The path on your host machine to the SSL certificate.
+- **SSL_KEY_HOST_PATH**: The path on your host machine to the SSL private key.
+- **SSL_CERTIFICATE_PATH**: The path inside your container or application to the SSL certificate. Default is `"/app/ssl/certs/fullchain.pem"`.
+- **SSL_KEY_PATH**: The path inside your container or application to the SSL private key. Default is `"/app/ssl/private/privkey.pem"`.
 
-- `ChannelSecret`: Your Linebot channel secret.
-- `ChannelAccessToken`: Your Linebot channel access token.
-- `SSLCertfilePath`: Path to your SSL certificate file.
-- `SSLKeyPath`: Path to your SSL key file.
-- `SITE_URL`: URL of your site.
-- `PORT`: Port for your application to run on.
-- `DB_USERNAME`: Username for your PostgreSQL database.
-- `DB_PASSWORD`: Password for your PostgreSQL database.
-- `DB_URL`: URL for your PostgreSQL database.
-- `DB_NAME`: Name of your PostgreSQL database.
-- `DB_PORT`: Port number for your PostgreSQL database.
-- `DB_MAX_IDLE_CONNS`: Maximum number of idle connections in the PostgreSQL connection pool.
-- `DB_MAX_OPEN_CONNS`: Maximum number of open connections to the PostgreSQL database.
-- `DB_CONN_MAX_LIFETIME`: Maximum lifetime of a connection to the PostgreSQL database.
+### Server Configuration
+- **SITE_URL**: The base URL of your site, e.g., `"https://example.com"`.
+- **PORT**: The port on which your application server runs.
+
+### Database Configuration
+Configure your database settings here:
+- **DB_USERNAME**: The username for your database.
+- **DB_PASSWORD**: The password for your database.
+- **DB_URL**: The URL or IP address where your database is hosted.
+- **DB_NAME**: The name of your database.
+- **DB_PORT**: The port for your database connection. Default is `5432` (standard for PostgreSQL).
+- **DB_MAX_IDLE_CONNS**: The maximum number of idle connections that can be simultaneously maintained. Default is `10`.
+- **DB_MAX_OPEN_CONNS**: The maximum number of open connections to the database. Default is `100`.
+- **DB_CONN_MAX_LIFETIME**: The maximum amount of time a connection may be reused. Default is `1h` (1 hour).
 
 You can copy the `.env.example` file to a new file named `.env` and fill in the appropriate values. 
 
