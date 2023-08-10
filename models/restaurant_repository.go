@@ -10,8 +10,8 @@ type Restaurant struct {
 	gorm.Model
 	Name      string
 	Tel       string
-	MenuItems []MenuItem
-	Orders    []Order
+	MenuItems []*MenuItem
+	Orders    []*Order
 }
 
 type RestaurantRepository struct {

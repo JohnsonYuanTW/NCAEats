@@ -23,8 +23,7 @@ type MenuItemRepository struct {
 type MenuItemRepositoryInterface interface {
 	Init() error
 	CreateMenuItem(*MenuItem) error
-	GetAllMenuItems() ([]MenuItem, error)
-	GetMenuItemsByRestaurantName(string) ([]MenuItem, error)
+	GetMenuItemsByRestaurantName(string) ([]*MenuItem, error)
 	GetMenuItemByDetails(string, string) (*MenuItem, error)
 }
 
@@ -39,13 +38,7 @@ func (r *MenuItemRepository) CreateMenuItem(mi *MenuItem) error {
 	return r.DB.Create(mi).Error
 }
 
-func (r *MenuItemRepository) GetAllMenuItems() ([]MenuItem, error) {
-	var menuItems []MenuItem
-	result := r.DB.Find(&menuItems)
-	return menuItems, result.Error
-}
-
-func (r *MenuItemRepository) GetMenuItemsByRestaurantName(name string) ([]MenuItem, error) {
+func (r *MenuItemRepository) GetMenuItemsByRestaurantName(name string) ([]*MenuItem, error) {
 	var restaurant Restaurant
 	if err := r.DB.
 		Preload(clause.Associations).

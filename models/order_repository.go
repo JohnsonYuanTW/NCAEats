@@ -14,7 +14,7 @@ type Order struct {
 	ReportID     string
 	RestaurantID uint
 	Restaurant   *Restaurant
-	OrderDetails []OrderDetail
+	OrderDetails []*OrderDetail
 }
 
 type OrderRepository struct {
@@ -24,8 +24,8 @@ type OrderRepository struct {
 type OrderRepositoryInterface interface {
 	Init() error
 	CreateOrder(*Order) error
-	GetActiveOrders() ([]Order, error)
-	GetActiveOrdersOfOwnerID(string) ([]Order, error)
+	GetActiveOrders() ([]*Order, error)
+	GetActiveOrdersOfOwnerID(string) ([]*Order, error)
 	CountActiveOrdersOfOwnerID(string) (int64, error)
 	SaveOrderReport(uint, string) error
 	generateUniqueReportID() string
@@ -46,14 +46,14 @@ func (r *OrderRepository) CreateOrder(o *Order) error {
 	return r.DB.Create(o).Error
 }
 
-func (r *OrderRepository) GetActiveOrders() ([]Order, error) {
-	var orders []Order
+func (r *OrderRepository) GetActiveOrders() ([]*Order, error) {
+	var orders []*Order
 	result := r.DB.Preload("Restaurant").Find(&orders)
 	return orders, result.Error
 }
 
-func (r *OrderRepository) GetActiveOrdersOfOwnerID(ownerID string) ([]Order, error) {
-	var orders []Order
+func (r *OrderRepository) GetActiveOrdersOfOwnerID(ownerID string) ([]*Order, error) {
+	var orders []*Order
 	result := r.DB.Preload("Restaurant").Where("owner=?", ownerID).Find(&orders)
 	return orders, result.Error
 }
