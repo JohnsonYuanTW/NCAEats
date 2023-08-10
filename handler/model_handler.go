@@ -17,61 +17,97 @@ func (a *AppHandler) handleNewOrder(args []string, ID string) (linebot.FlexConta
 	}
 
 	restaurantName := args[0]
-	restaurant, err := a.RestaurantRepo.GetRestaurantByName(restaurantName)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrRestaurantNotFound
-		}
-		a.Logger.WithError(err).Error("無法取得 %s 餐廳資訊", restaurantName)
-		return nil, ErrSystemError
-	}
-
-	menuItems, err := a.MenuItemRepo.GetMenuItemsByRestaurantName(restaurantName)
-	if err != nil {
-		a.Logger.WithError(err).Error("無法取得 %s 的餐點項目", restaurantName)
-		return nil, ErrSystemError
-	}
-
-	order, err := a.getActiveOrderOfIDWithErrorHandling(ID)
+	restaurant, err := a.fetchRestaurant(restaurantName)
 	if err != nil {
 		return nil, err
 	}
-	if order != nil {
-		return nil, ErrOrderInProgress
+
+	menuItems, err := a.fetchMenuItems(restaurantName)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := a.checkActiveOrder(ID); err != nil {
+		return nil, err
 	}
 
 	newOrder := &models.Order{
 		Owner:      ID,
 		Restaurant: restaurant,
 	}
-	if err = a.OrderRepo.CreateOrder(newOrder); err != nil {
-		a.Logger.WithError(err).WithField("User", a.getDisplayNameFromID(ID)).Error("系統問題，無法開單")
-		return nil, ErrSystemError
+	if err = a.createOrder(newOrder); err != nil {
+		return nil, err
 	}
 
-	// Get and parse menuItemListFlexContainer.json
+	return a.generateMenuFlexContainer(restaurant, menuItems)
+}
+
+// fetchRestaurant returns the restaurant based on its name. It will handle the related errors and logging internally.
+func (a *AppHandler) fetchRestaurant(restaurantName string) (*models.Restaurant, error) {
+	restaurant, err := a.RestaurantRepo.GetRestaurantByName(restaurantName)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrRestaurantNotFound
+		}
+		a.Logger.WithError(err).Errorf("無法取得 %s 餐廳資訊", restaurantName)
+		return nil, ErrSystemError
+	}
+	return restaurant, nil
+}
+
+// fetchMenuItems retrieves the menu items for a given restaurant.
+func (a *AppHandler) fetchMenuItems(restaurantName string) ([]*models.MenuItem, error) {
+	menuItems, err := a.MenuItemRepo.GetMenuItemsByRestaurantName(restaurantName)
+	if err != nil {
+		a.Logger.WithError(err).Errorf("無法取得 %s 的餐點項目", restaurantName)
+		return nil, ErrSystemError
+	}
+	return menuItems, nil
+}
+
+// checkActiveOrder checks if there's an active order for the given ID.
+func (a *AppHandler) checkActiveOrder(ID string) error {
+	order, err := a.getActiveOrderOfIDWithErrorHandling(ID)
+	if err != nil {
+		return err
+	}
+	if order != nil {
+		return ErrOrderInProgress
+	}
+	return nil
+}
+
+// createOrder creates a new order.
+func (a *AppHandler) createOrder(order *models.Order) error {
+	if err := a.OrderRepo.CreateOrder(order); err != nil {
+		a.Logger.WithError(err).WithField("User", a.getDisplayNameFromID(order.Owner)).Error("系統問題，無法開單")
+		return ErrSystemError
+	}
+	return nil
+}
+
+// generateMenuFlexContainer creates and returns the menu flex container.
+func (a *AppHandler) generateMenuFlexContainer(restaurant *models.Restaurant, menuItems []*models.MenuItem) (linebot.FlexContainer, error) {
 	menuItemListFlexContainer, err := a.Templates.generateFlexContainer("menuItemListFlexContainer", restaurant.Name, restaurant.Tel)
 	if err != nil {
 		a.Logger.WithError(err).WithField("File", "menuItemListFlexContainer").Error("無法解析 JSON")
 		return nil, ErrSystemError
 	}
 
-	// Access the contents array in menuItemListFlexContainer
 	bubbleContainer, ok := menuItemListFlexContainer.(*linebot.BubbleContainer)
 	if !ok {
 		return nil, ErrSystemError
 	}
 
-	// Add menuItems into container
 	for _, menuItem := range menuItems {
 		newMenuItemBox, err := a.Templates.generateBoxComponent("menuItemListBoxComponent", menuItem.Name, menuItem.Price, menuItem.Name, menuItem.Name)
 		if err != nil {
 			a.Logger.WithError(err).WithField("File", "menuItemListBoxComponent").Error("無法解析 JSON")
 			return nil, ErrSystemError
 		}
-
 		bubbleContainer.Body.Contents = append(bubbleContainer.Body.Contents, &newMenuItemBox)
 	}
+
 	return menuItemListFlexContainer, nil
 }
 
@@ -252,7 +288,7 @@ func (a *AppHandler) handleGetAllRestaurants(args []string) (linebot.FlexContain
 
 func (a *AppHandler) getActiveOrderOfIDWithErrorHandling(ID string) (*models.Order, error) {
 	// Get active order
-	var orders []models.Order
+	var orders []*models.Order
 	var err error
 	username := a.getDisplayNameFromID(ID)
 	if orders, err = a.OrderRepo.GetActiveOrdersOfOwnerID(ID); err != nil {
@@ -261,7 +297,7 @@ func (a *AppHandler) getActiveOrderOfIDWithErrorHandling(ID string) (*models.Ord
 	}
 
 	if count := len(orders); count == 1 {
-		return &orders[0], nil
+		return orders[0], nil
 	} else if count < 1 {
 		return nil, nil
 	} else {
