@@ -9,7 +9,7 @@ import (
 type Config struct {
 	ChannelSecret      string        `envconfig:"CHANNEL_SECRET"`
 	ChannelAccessToken string        `envconfig:"CHANNEL_ACCESS_TOKEN"`
-	SSLCertfilePath    string        `envconfig:"SSL_CERTIFICATE_FILE"`
+	SSLCertfilePath    string        `envconfig:"SSL_CERTIFICATE_PATH"`
 	SSLKeyPath         string        `envconfig:"SSL_KEY_PATH"`
 	SiteURL            string        `envconfig:"SITE_URL"`
 	Port               string        `envconfig:"PORT"`

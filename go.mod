@@ -47,7 +47,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/line/line-bot-sdk-go v7.8.0+incompatible
 	github.com/sirupsen/logrus v1.9.0
-	github.com/stretchr/testify v1.8.3
+	github.com/stretchr/testify v1.8.4
 	gorm.io/driver/postgres v1.5.0
 	gorm.io/gorm v1.24.7-0.20230306060331-85eaf9eeda11
 )
