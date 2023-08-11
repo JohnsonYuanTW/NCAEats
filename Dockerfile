@@ -10,7 +10,6 @@ RUN apk --no-cache add ca-certificates tzdata
 ENV TZ=Asia/Taipei
 WORKDIR /app
 COPY --from=builder /app/main /app/main
-COPY static/ static/
 COPY templates/ templates/
 EXPOSE $PORT
 CMD ["./main"]
