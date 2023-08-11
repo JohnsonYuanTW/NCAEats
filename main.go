@@ -123,7 +123,12 @@ func main() {
 
 	// Start server
 	addr := fmt.Sprintf(":%s", s.Port)
-	if err := r.RunTLS(addr, s.SSLCertfilePath, s.SSLKeyPath); err != nil {
+	if s.UseSSL {
+		err = r.RunTLS(addr, s.SSLCertfilePath, s.SSLKeyPath)
+	} else {
+		err = r.Run(addr)
+	}
+	if err != nil {
 		log.WithError(err).Fatal("無法啟動網頁伺服器")
 	}
 }

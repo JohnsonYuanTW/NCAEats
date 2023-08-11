@@ -43,6 +43,7 @@ This document outlines the environment variables used in [Your Project Name]. Ma
 
 ### SSL Configuration
 Line requires webhook to operate under SSL, so you'll need to configure these paths.
+- **USE_SSL**: Whether to use SSL. If your setup includes SSL termination, you can disable SSL here. Default is true. 
 - **SSL_CERTIFICATE_HOST_PATH**: The path on your host machine to the SSL certificate.
 - **SSL_KEY_HOST_PATH**: The path on your host machine to the SSL private key.
 - **SSL_CERTIFICATE_PATH**: The path inside your container or application to the SSL certificate. Default is `"/app/ssl/certs/fullchain.pem"`.
