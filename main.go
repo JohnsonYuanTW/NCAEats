@@ -4,18 +4,20 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 
 	"github.com/JohnsonYuanTW/NCAEats/config"
 	"github.com/JohnsonYuanTW/NCAEats/handler"
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
-func initDBConn(config *config.Config) (*gorm.DB, error) {
+func initDBConn(config *config.Config, log *logrus.Logger) (*gorm.DB, error) {
 	u := &url.URL{
 		Scheme:   "postgres",
 		User:     url.UserPassword(config.DBUsername, config.DBPassword),
@@ -27,7 +29,15 @@ func initDBConn(config *config.Config) (*gorm.DB, error) {
 	dsn := u.String()
 
 	// Open DB connection
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	newLogger := logger.New(log, logger.Config{
+		SlowThreshold:             time.Second,
+		LogLevel:                  logger.Warn,
+		IgnoreRecordNotFoundError: true,
+		Colorful:                  false,
+	})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: newLogger,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
@@ -63,7 +73,7 @@ func main() {
 	log.Info("環境變數載入成功")
 
 	// Initialize DB conn and models
-	db, err := initDBConn(s)
+	db, err := initDBConn(s, log)
 	if err != nil {
 		log.WithError(err).Fatal("資料庫連線失敗")
 	}
@@ -87,7 +97,8 @@ func main() {
 
 	// Set up routes
 	gin.SetMode(gin.ReleaseMode)
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.Recovery(), customLogger(log))
 	r.POST("/callback", appHandler.CallbackHandler)
 	r.GET("/userReport/:reportID", func(c *gin.Context) {
 		reportID := c.Params.ByName("reportID")
@@ -114,5 +125,38 @@ func main() {
 	addr := fmt.Sprintf(":%s", s.Port)
 	if err := r.RunTLS(addr, s.SSLCertfilePath, s.SSLKeyPath); err != nil {
 		log.WithError(err).Fatal("無法啟動網頁伺服器")
+	}
+}
+
+func customLogger(log *logrus.Logger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Start timer
+		startTime := time.Now()
+
+		// Process request
+		c.Next()
+
+		// Log only 4xx and 5xx responses, excluding favicon.ico
+		if (c.Writer.Status() >= 400 && c.Writer.Status() < 600) && c.Request.URL.Path != "/favicon.ico" {
+			endTime := time.Now()
+			latency := endTime.Sub(startTime)
+			clientIP := c.ClientIP()
+			method := c.Request.Method
+			statusCode := c.Writer.Status()
+
+			entry := log.WithFields(logrus.Fields{
+				"status_code": statusCode,
+				"latency":     latency,
+				"client_ip":   clientIP,
+				"method":      method,
+				"path":        c.Request.URL.Path,
+			})
+
+			if statusCode >= 500 {
+				entry.Error("[GIN] Internal Server Error")
+			} else {
+				entry.Warn("[GIN] Client Error")
+			}
+		}
 	}
 }
