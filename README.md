@@ -18,17 +18,17 @@ NCAEats is a tool designed to simplify the process of organizing group lunch ord
         - [x] linebot
         - [ ] .csv
         - [ ] .xls, .xlsx
-- [ ] Refactoring
+- [x] Refactoring
     - [x] Integrate gorm for Object-Relational Mapping (ORM)
-    - [ ] Improve error handling using the `errors` package
-    - [ ] Utilize `logrus` for logging
-    - [ ] Implement Flex Response
-        - [ ] Introduce Flex Response in all functionalities
+    - [x] Improve error handling using the `errors` package
+    - [x] Utilize `logrus` for logging
+    - [x] Implement Flex Response
+        - [x] Introduce Flex Response in all functionalities
         - [x] Enhance the approach for loading JSON using DI
     - [x] Enhance the project with DI
 - [ ] Docker Integration
     - [x] Create Dockerfile for building application image
-    - [ ] Set up Docker Compose for local development and testing
+    - [x] Set up Docker Compose for local development and testing
     - [ ] (Optional) Configure a Docker registry for storing and distributing your application image
 - [ ] Testing
     - [ ] Conduct unit tests
